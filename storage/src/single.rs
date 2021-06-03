@@ -10,8 +10,7 @@ use core::{
 
 use crate::{
     affix::{OffsetHandle, SharedOffsetHandle},
-    AllocErr, FromPtr, MemoryBlock, NonEmptyLayout, NonEmptyMemoryBlock, ResizableStorage, SharedGetMut,
-    SharedResizableStorage, SharedStorage, Storage,
+    AllocErr, FromPtr, MemoryBlock, NonEmptyLayout, NonEmptyMemoryBlock, SharedGetMut, SharedStorage, Storage,
 };
 
 pub struct SingleStackStorage<T> {
@@ -104,38 +103,6 @@ unsafe impl<T> Storage for SingleStackStorage<T> {
     }
 }
 
-unsafe impl<T> ResizableStorage for SingleStackStorage<T> {
-    #[inline]
-    unsafe fn grow(
-        &mut self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.deallocate((), old);
-        self.allocate(new)
-    }
-
-    #[inline]
-    unsafe fn grow_zeroed(
-        &mut self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.deallocate((), old);
-        self.allocate_zeroed(new)
-    }
-
-    #[inline]
-    unsafe fn shrink(&mut self, _: Self::Handle, _: Layout, _: Layout) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        Ok(MemoryBlock {
-            size: mem::size_of::<T>(),
-            handle: (),
-        })
-    }
-}
-
 impl<T> SingleStackStorage<T> {
     const fn fits(layout: Layout) -> bool {
         mem::size_of::<T>() >= layout.size() && mem::align_of::<T>() >= layout.align()
@@ -181,56 +148,6 @@ unsafe impl<T> SharedStorage for SingleStackStorage<T> {
     #[inline]
     unsafe fn shared_deallocate(&self, _: Self::Handle, layout: Layout) {
         self.allocated.fetch_and(layout.size() == 0, Ordering::Release);
-    }
-}
-
-unsafe impl<T> SharedResizableStorage for SingleStackStorage<T> {
-    #[inline]
-    unsafe fn shared_grow(
-        &self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        if Self::fits(new) && (old.size() != 0 || new.size() == 0 || self.aquire()) {
-            Ok(MemoryBlock {
-                size: mem::size_of::<T>(),
-                handle: (),
-            })
-        } else {
-            Err(AllocErr(new))
-        }
-    }
-
-    #[inline]
-    unsafe fn shared_grow_zeroed(
-        &self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        if Self::fits(new) && (old.size() != 0 || new.size() == 0 || self.aquire()) {
-            *self.memory.get() = MaybeUninit::zeroed();
-            Ok(MemoryBlock {
-                size: mem::size_of::<T>(),
-                handle: (),
-            })
-        } else {
-            Err(AllocErr(new))
-        }
-    }
-
-    #[inline]
-    unsafe fn shared_shrink(
-        &self,
-        _: Self::Handle,
-        _: Layout,
-        _: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        Ok(MemoryBlock {
-            size: mem::size_of::<T>(),
-            handle: (),
-        })
     }
 }
 
@@ -284,38 +201,6 @@ unsafe impl<T> Storage for OffsetSingleStackStorage<T> {
     unsafe fn deallocate(&mut self, handle: Self::Handle, layout: Layout) { self.storage.deallocate(handle, layout) }
 }
 
-unsafe impl<T> ResizableStorage for OffsetSingleStackStorage<T> {
-    #[inline]
-    unsafe fn grow(
-        &mut self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.storage.grow((), old, new)
-    }
-
-    #[inline]
-    unsafe fn grow_zeroed(
-        &mut self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.storage.grow_zeroed((), old, new)
-    }
-
-    #[inline]
-    unsafe fn shrink(
-        &mut self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.storage.shrink((), old, new)
-    }
-}
-
 unsafe impl<T> SharedStorage for OffsetSingleStackStorage<T> {
     #[inline]
     fn shared_allocate_nonempty(&self, layout: NonEmptyLayout) -> Result<NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
@@ -335,37 +220,5 @@ unsafe impl<T> SharedStorage for OffsetSingleStackStorage<T> {
     #[inline]
     unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: Layout) {
         self.storage.shared_deallocate(handle, layout)
-    }
-}
-
-unsafe impl<T> SharedResizableStorage for OffsetSingleStackStorage<T> {
-    #[inline]
-    unsafe fn shared_grow(
-        &self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.storage.shared_grow((), old, new)
-    }
-
-    #[inline]
-    unsafe fn shared_grow_zeroed(
-        &self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.storage.shared_grow_zeroed((), old, new)
-    }
-
-    #[inline]
-    unsafe fn shared_shrink(
-        &self,
-        _: Self::Handle,
-        old: Layout,
-        new: Layout,
-    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
-        self.storage.shared_shrink((), old, new)
     }
 }

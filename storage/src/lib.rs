@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(core_intrinsics, ptr_metadata, unsize, layout_for_ptr)]
+#![feature(core_intrinsics, ptr_metadata, unsize, layout_for_ptr, alloc_layout_extra)]
 #![deny(clippy::pedantic, clippy::perf)]
 #![warn(clippy::nursery)]
 #![allow(
@@ -38,6 +38,7 @@ mod alloc_error_handler;
 
 pub mod boxed;
 pub mod rc;
+pub mod vec;
 
 mod scope_guard;
 
@@ -196,3 +197,5 @@ fn global() {
 // * no raw storage function that could deallocate memory may ...
 //      * be called concurrently with any other such function the same handle
 //      * be called concurrently with any `*get*` function
+
+pub unsafe fn asm(v: &mut vec::Vec<i32>) -> Option<i32> { v.try_pop() }

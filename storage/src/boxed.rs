@@ -3,9 +3,9 @@ use core::{
     alloc::Layout,
     fmt,
     marker::{PhantomData, Unsize},
-    mem::{ManuallyDrop, MaybeUninit},
+    mem::{self, ManuallyDrop, MaybeUninit},
     ops::{Deref, DerefMut},
-    ptr::{self, Pointee, Thin},
+    ptr::{self, NonNull, Pointee, Thin},
 };
 
 pub struct Box<T: ?Sized + Pointee, S: Storage = crate::Global> {
@@ -62,13 +62,48 @@ impl<T: Thin> Box<MaybeUninit<T>, crate::SingleStackStorage<T>> {
     };
 }
 
+impl<T> Box<[T]> {
+    pub const fn empty_slice() -> Self {
+        Self {
+            handle: NonNull::<T>::dangling().cast(),
+            storage: crate::Global,
+            meta: 0,
+            __: PhantomData,
+        }
+    }
+}
+
+impl<T, S: Storage> Box<[T], S> {
+    pub fn empty_slice_in(storage: S) -> Self {
+        Self {
+            handle: unsafe { crate::Handle::dangling(mem::align_of::<T>()) },
+            storage,
+            meta: 0,
+            __: PhantomData,
+        }
+    }
+
+    /// # Panics
+    ///
+    /// If layout cannot be computed
+    pub fn try_uninit_slice_in(len: usize, mut storage: S) -> Result<Box<[MaybeUninit<T>], S>, AllocErr> {
+        let layout = Layout::new::<T>().repeat(len).unwrap().0;
+        let memory_block = storage.allocate(layout)?;
+        Ok(Box {
+            __: PhantomData,
+            storage,
+            handle: memory_block.handle,
+            meta: len,
+        })
+    }
+}
+
 impl<T: Thin> Box<T> {
     pub fn new(value: T) -> Self { Self::new_in(value, crate::Global) }
 }
 
 impl<T: Thin, S: Storage> Box<T, S> {
     pub fn new_in(value: T, storage: S) -> Self { Self::try_new_in(value, storage).unwrap_or_else(AllocErr::handle) }
-
     pub fn try_new_in(value: T, storage: S) -> Result<Self, AllocErr> {
         Ok(Self::write(Self::try_uninit_in(storage)?, value))
     }
@@ -164,7 +199,6 @@ impl<T, S: ResizableStorage> Box<[MaybeUninit<T>], S> {
     ///
     /// if `self.len() < new_size`
     pub fn try_shrink(&mut self, new_size: usize) -> Result<(), AllocErr> {
-        use core::mem;
         unsafe {
             let size = self.len();
             assert!(size >= new_size);
@@ -181,7 +215,6 @@ impl<T, S: ResizableStorage> Box<[MaybeUninit<T>], S> {
     ///
     /// if `self.len() > new_size`
     pub fn try_grow(&mut self, new_size: usize) -> Result<(), AllocErr> {
-        use core::mem;
         unsafe {
             let size = self.len();
             assert!(size <= new_size);
@@ -198,7 +231,6 @@ impl<T, S: ResizableStorage> Box<[MaybeUninit<T>], S> {
     ///
     /// if `self.len() > new_size`
     pub fn try_grow_zeroed(&mut self, new_size: usize) -> Result<(), AllocErr> {
-        use core::mem;
         unsafe {
             let size = self.len();
             assert!(size <= new_size);
@@ -221,7 +253,6 @@ impl<T: Copy, S: ResizableStorage> Box<[T], S> {
     ///
     /// if `self.len() < new_size`
     pub fn try_shrink_initialized(&mut self, new_size: usize) -> Result<(), AllocErr> {
-        use core::mem;
         unsafe {
             let size = self.len();
             assert!(size >= new_size);
