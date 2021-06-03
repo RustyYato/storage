@@ -55,6 +55,12 @@ impl<T, S: Storage> Vec<T, S> {
         self.raw.len()
     }
 
+    #[inline]
+    pub unsafe fn set_len(&mut self, len: usize) {
+        assume(len <= self.capacity());
+        self.len = len;
+    }
+
     pub fn remaining_space(&mut self) -> &mut [MaybeUninit<T>] {
         let len = self.len();
         &mut self.raw[len..]
