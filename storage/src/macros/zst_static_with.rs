@@ -37,7 +37,8 @@ macro_rules! zst_static_with {
 
             impl $handle {
                 #[inline]
-                const fn inner(self) -> __InnerHandle {
+                #[allow(clippy::missing_const_for_fn)]
+                fn inner(self) -> __InnerHandle {
                     self.0
                 }
 
@@ -55,7 +56,7 @@ macro_rules! zst_static_with {
             unsafe impl $crate::Handle for $handle {
                 #[inline]
                 unsafe fn dangling(align: usize) -> Self {
-                    Self($crate::Handle::dangling(align))
+                    Self(<__InnerHandle as $crate::Handle>::dangling(align))
                 }
             }
 
@@ -74,40 +75,40 @@ macro_rules! zst_static_with {
 
             unsafe impl $crate::FromPtr for $name {
                 #[inline]
-                unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle {
+                unsafe fn from_ptr(&self, ptr: $crate::macros::core::ptr::NonNull<u8>) -> Self::Handle {
                     $handle($crate::FromPtr::from_ptr(storage(), ptr))
                 }
             }
 
             unsafe impl $crate::SharedGetMut for $name {
                 #[inline]
-                unsafe fn shared_get_mut(&self, handle: Self::Handle) -> NonNull<u8> { $crate::PointerHandle::get(handle) }
+                unsafe fn shared_get_mut(&self, handle: Self::Handle) -> $crate::macros::core::ptr::NonNull<u8> { $crate::PointerHandle::get(handle) }
             }
 
             unsafe impl $crate::Storage for $name {
                 type Handle = $handle;
 
                 #[inline]
-                unsafe fn get(&self, handle: Self::Handle) -> NonNull<u8> { $crate::PointerHandle::get(handle) }
+                unsafe fn get(&self, handle: Self::Handle) -> $crate::macros::core::ptr::NonNull<u8> { $crate::PointerHandle::get(handle) }
 
                 #[inline]
-                unsafe fn get_mut(&mut self, handle: Self::Handle) -> NonNull<u8> { $crate::PointerHandle::get_mut(handle) }
+                unsafe fn get_mut(&mut self, handle: Self::Handle) -> $crate::macros::core::ptr::NonNull<u8> { $crate::PointerHandle::get_mut(handle) }
 
                 #[inline]
                 fn allocate_nonempty(
                     &mut self,
-                    layout: NonEmptyLayout,
-                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
+                    layout: $crate::NonEmptyLayout,
+                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map_ne($crate::SharedStorage::shared_allocate_nonempty(storage(), layout))
                 }
 
                 #[inline]
-                unsafe fn deallocate_nonempty(&mut self, handle: Self::Handle, layout: NonEmptyLayout) {
+                unsafe fn deallocate_nonempty(&mut self, handle: Self::Handle, layout: $crate::NonEmptyLayout) {
                     $crate::SharedStorage::shared_deallocate_nonempty(storage(), handle.inner(), layout)
                 }
 
                 #[inline]
-                fn allocate(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                fn allocate(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedStorage::shared_allocate(storage(), layout))
                 }
 
@@ -119,13 +120,13 @@ macro_rules! zst_static_with {
                 #[inline]
                 fn allocate_nonempty_zeroed(
                     &mut self,
-                    layout: NonEmptyLayout,
-                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
+                    layout: $crate::NonEmptyLayout,
+                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map_ne($crate::SharedStorage::shared_allocate_nonempty_zeroed(storage(), layout))
                 }
 
                 #[inline]
-                fn allocate_zeroed(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                fn allocate_zeroed(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedStorage::shared_allocate_zeroed(storage(), layout))
                 }
             }
@@ -138,7 +139,7 @@ macro_rules! zst_static_with {
                     handle: Self::Handle,
                     old: core::alloc::Layout,
                     new: core::alloc::Layout,
-                ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                ) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedResizableStorage::shared_grow(storage(), handle.inner(), old, new))
                 }
 
@@ -148,7 +149,7 @@ macro_rules! zst_static_with {
                     handle: Self::Handle,
                     old: core::alloc::Layout,
                     new: core::alloc::Layout,
-                ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                ) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedResizableStorage::shared_grow_zeroed(storage(), handle.inner(), old, new))
                 }
 
@@ -158,7 +159,7 @@ macro_rules! zst_static_with {
                     handle: Self::Handle,
                     old: core::alloc::Layout,
                     new: core::alloc::Layout,
-                ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                ) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedResizableStorage::shared_shrink(storage(), handle.inner(), old, new))
                 }
             }
@@ -167,18 +168,18 @@ macro_rules! zst_static_with {
                 #[inline]
                 fn shared_allocate_nonempty(
                     &self,
-                    layout: NonEmptyLayout,
-                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
+                    layout: $crate::NonEmptyLayout,
+                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map_ne($crate::SharedStorage::shared_allocate_nonempty(storage(), layout))
                 }
 
                 #[inline]
-                unsafe fn shared_deallocate_nonempty(&self, handle: Self::Handle, layout: NonEmptyLayout) {
+                unsafe fn shared_deallocate_nonempty(&self, handle: Self::Handle, layout: $crate::NonEmptyLayout) {
                     $crate::SharedStorage::shared_deallocate_nonempty(storage(), handle.inner(), layout)
                 }
 
                 #[inline]
-                fn shared_allocate(&self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                fn shared_allocate(&self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedStorage::shared_allocate(storage(), layout))
                 }
 
@@ -190,13 +191,13 @@ macro_rules! zst_static_with {
                 #[inline]
                 fn shared_allocate_nonempty_zeroed(
                     &self,
-                    layout: NonEmptyLayout,
-                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
+                    layout: $crate::NonEmptyLayout,
+                ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map_ne($crate::SharedStorage::shared_allocate_nonempty_zeroed(storage(), layout))
                 }
 
                 #[inline]
-                fn shared_allocate_zeroed(&self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                fn shared_allocate_zeroed(&self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedStorage::shared_allocate_zeroed(storage(), layout))
                 }
             }
@@ -209,7 +210,7 @@ macro_rules! zst_static_with {
                     handle: Self::Handle,
                     old: core::alloc::Layout,
                     new: core::alloc::Layout,
-                ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                ) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedResizableStorage::shared_grow(storage(), handle.inner(), old, new))
                 }
 
@@ -219,7 +220,7 @@ macro_rules! zst_static_with {
                     handle: Self::Handle,
                     old: core::alloc::Layout,
                     new: core::alloc::Layout,
-                ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                ) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedResizableStorage::shared_grow_zeroed(storage(), handle.inner(), old, new))
                 }
 
@@ -229,7 +230,7 @@ macro_rules! zst_static_with {
                     handle: Self::Handle,
                     old: core::alloc::Layout,
                     new: core::alloc::Layout,
-                ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+                ) -> Result<crate::MemoryBlock<Self::Handle>, $crate::AllocErr> {
                     $handle::map($crate::SharedResizableStorage::shared_shrink(storage(), handle.inner(), old, new))
                 }
             }

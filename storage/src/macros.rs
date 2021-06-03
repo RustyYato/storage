@@ -4,11 +4,37 @@ mod install_global;
 mod zst_static;
 
 pub use core;
-use core::mem::MaybeUninit;
+use core::{
+    mem::MaybeUninit,
+    sync::atomic::{AtomicU8, Ordering},
+};
 
 use crate::{MemoryBlock, NonEmptyMemoryBlock};
 pub type MbR<H> = Result<crate::MemoryBlock<H>, crate::AllocErr>;
 pub type NeMbR<H> = Result<crate::NonEmptyMemoryBlock<H>, crate::AllocErr>;
+
+pub struct Once(AtomicU8);
+
+pub struct Finisher<'once> {
+    inner: &'once Once,
+}
+
+impl Once {
+    pub const fn new() -> Self { Self(AtomicU8::new(0)) }
+
+    pub fn is_done(&self) -> bool { self.0.load(Ordering::Acquire) == 2 }
+
+    pub fn attempt(&self) -> Option<Finisher<'_>> {
+        self.0
+            .compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire)
+            .ok()
+            .map(|_| Finisher { inner: self })
+    }
+}
+
+impl Finisher<'_> {
+    pub fn finish(&self) { self.inner.0.store(2, Ordering::Release); }
+}
 
 pub struct MacroToken(());
 

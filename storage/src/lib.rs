@@ -175,26 +175,37 @@ fn test2() {
 }
 
 #[test]
+#[allow(clippy::items_after_statements)]
 fn global() {
     use crate::boxed::Box;
 
     #[repr(align(4096))]
     struct Memory([u8; 1 << 24]);
 
+    trait GlobalFromPtr: GlobalStorage + FromPtr {}
+    impl<T: ?Sized + GlobalStorage + FromPtr> GlobalFromPtr for T {}
+
     fn alloc_error_handler(layout: Layout) -> ! { panic!("{:?}", layout) }
 
     zst_static!(
-        struct Zst
-        with struct ZstHandle
+        struct CoreMemory
+        with struct CoreMemoryHandle
         #[resizable = cfg(FALSE)]
         as SingleStackStorage<Memory> = SingleStackStorage::new()
+    );
+
+    zst_runtime!(
+        struct GrowableMemory
+        with struct GrowableMemoryHandle
+        as BumpStorage<CoreMemory, 4096> = BumpStorage::new(CoreMemory, 0);
+        __BUMPMEM __BUMPONCE
     );
 
     set_alloc_error_handler(alloc_error_handler);
 
     install_global_allocator! {
-        let GLOBAL: BumpStorage<Zst, 4096> = {
-            BumpStorage::new(Zst, core::mem::size_of::<Memory>())
+        let GLOBAL: GrowableMemory = {
+            GrowableMemory
         };
     }
 
