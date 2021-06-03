@@ -28,6 +28,7 @@ mod global_as_ptr;
 mod imp;
 mod multi;
 mod no_op;
+mod pad;
 mod picker;
 mod single;
 
