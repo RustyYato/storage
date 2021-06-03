@@ -69,10 +69,13 @@ unsafe impl<T> Storage for MultiStackStorage<T> {
         // but this is more expensive, and could be layered on top
         // if necessary
         if mem::align_of::<T>() < layout.align() {
-            return Err(AllocErr(layout))
+            return Err(AllocErr::new(layout))
         }
 
-        let begin = self.offset.checked_sub(layout.size()).ok_or(AllocErr(layout))?;
+        let begin = self
+            .offset
+            .checked_sub(layout.size())
+            .ok_or_else(|| AllocErr::new(layout))?;
         let begin = begin & !layout.align().wrapping_sub(1);
         let size = unsafe { NonZeroUsize::new_unchecked(self.offset.wrapping_sub(begin)) };
         self.offset = begin;
@@ -163,7 +166,10 @@ unsafe impl<T> Storage for Pin<&mut MultiStackStorage<T>> {
 
         let layout = Layout::from(layout);
 
-        let begin = this.offset.checked_sub(layout.size()).ok_or(AllocErr(layout))?;
+        let begin = this
+            .offset
+            .checked_sub(layout.size())
+            .ok_or_else(|| AllocErr::new(layout))?;
         let begin = begin & !layout.align().wrapping_sub(1);
         let size = unsafe { NonZeroUsize::new_unchecked(this.offset.wrapping_sub(begin)) };
         this.offset = begin;

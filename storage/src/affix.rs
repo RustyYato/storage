@@ -159,7 +159,7 @@ unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: OffsetHandle> Storage f
     unsafe fn get_mut(&mut self, handle: Self::Handle) -> NonNull<u8> { self.inner.get_mut(handle.inner) }
 
     fn allocate_nonempty(&mut self, layout: NonEmptyLayout) -> Result<NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
-        let (layout, prefix, _suffix) = Self::surround(layout.into()).ok_or_else(|| AllocErr(layout.into()))?;
+        let (layout, prefix, _suffix) = Self::surround(layout.into()).ok_or_else(|| AllocErr::new(layout.into()))?;
 
         let memory_block = self
             .inner
@@ -183,7 +183,7 @@ unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: OffsetHandle> Storage f
     }
 
     fn allocate(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
-        let (layout, prefix, _suffix) = Self::surround(layout).ok_or(AllocErr(layout))?;
+        let (layout, prefix, _suffix) = Self::surround(layout).ok_or_else(|| AllocErr::new(layout))?;
 
         let memory_block = if Self::NO_AFFIX {
             self.inner.allocate(layout)
@@ -219,7 +219,7 @@ unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: OffsetHandle> Storage f
         &mut self,
         layout: NonEmptyLayout,
     ) -> Result<NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
-        let (layout, prefix, _suffix) = Self::surround(layout.into()).ok_or_else(|| AllocErr(layout.into()))?;
+        let (layout, prefix, _suffix) = Self::surround(layout.into()).ok_or_else(|| AllocErr::new(layout.into()))?;
 
         let memory_block = self
             .inner
@@ -235,7 +235,7 @@ unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: OffsetHandle> Storage f
     }
 
     fn allocate_zeroed(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
-        let (layout, prefix, _suffix) = Self::surround(layout).ok_or(AllocErr(layout))?;
+        let (layout, prefix, _suffix) = Self::surround(layout).ok_or_else(|| AllocErr::new(layout))?;
 
         let memory_block = if Self::NO_AFFIX {
             self.inner.allocate_zeroed(layout)
@@ -275,7 +275,7 @@ unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: ResizableStorage + Offs
             })
         }
 
-        let (new, new_pre, new_suf) = Self::surround(new).ok_or(AllocErr(new))?;
+        let (new, new_pre, new_suf) = Self::surround(new).ok_or_else(|| AllocErr::new(new))?;
         let (old, _old_pre, old_suf) = Self::surround_unchecked(old);
 
         let memory_block = self.inner.grow(handle.inner, old, new)?;
@@ -313,7 +313,7 @@ unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: ResizableStorage + Offs
                 })
         }
 
-        let (new, new_pre, new_suf) = Self::surround(new).ok_or(AllocErr(new))?;
+        let (new, new_pre, new_suf) = Self::surround(new).ok_or_else(|| AllocErr::new(new))?;
         let (old, _old_pre, old_suf) = Self::surround_unchecked(old);
 
         let memory_block = self.inner.grow_zeroed(handle.inner, old, new)?;

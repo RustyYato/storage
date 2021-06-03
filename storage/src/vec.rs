@@ -22,7 +22,7 @@ impl<T, S: Storage> Vec<T, S> {
     pub fn new_in(storage: S) -> Self {
         Self {
             len: 0,
-            raw: Box::empty_slice_in(storage),
+            raw: Box::try_uninit_slice_in(0, storage).unwrap_or_else(|err| Box::empty_slice_in(err.defuse())),
         }
     }
 
@@ -30,7 +30,7 @@ impl<T, S: Storage> Vec<T, S> {
         Self::try_with_capacity_in(capacity, storage).unwrap_or_else(AllocErr::handle)
     }
 
-    pub fn try_with_capacity_in(capacity: usize, storage: S) -> Result<Self, AllocErr> {
+    pub fn try_with_capacity_in(capacity: usize, storage: S) -> Result<Self, AllocErr<S>> {
         Ok(Self {
             len: 0,
             raw: Box::try_uninit_slice_in(capacity, storage)?,
@@ -39,9 +39,26 @@ impl<T, S: Storage> Vec<T, S> {
 
     pub fn is_empty(&self) -> bool { self.len == 0 }
 
-    pub fn len(&self) -> usize { self.len }
+    #[inline]
+    pub fn len(&self) -> usize {
+        unsafe {
+            assume(self.len <= self.capacity());
+        }
+        self.len
+    }
 
-    pub fn capacity(&self) -> usize { self.raw.len() }
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        unsafe {
+            assume(self.len <= self.raw.len());
+        }
+        self.raw.len()
+    }
+
+    pub fn remaining_space(&mut self) -> &mut [MaybeUninit<T>] {
+        let len = self.len();
+        &mut self.raw[len..]
+    }
 
     pub unsafe fn push_unchecked(&mut self, value: T) {
         assume(self.len() < self.capacity());
@@ -78,22 +95,23 @@ impl<T, S: ResizableStorage> Vec<T, S> {
     #[inline(never)]
     pub fn try_reserve_slow(&mut self, new_capacity: usize) -> Result<(), AllocErr> { self.raw.try_grow(new_capacity) }
 
-    pub fn try_reserve(&mut self, additional: usize) -> Result<&mut [MaybeUninit<T>], AllocErr> {
+    #[inline]
+    pub fn try_reserve(&mut self, additional: usize) -> Result<(), AllocErr> {
         let len = self.len();
         if self.capacity().wrapping_sub(len) < additional {
             self.try_reserve_slow(len.wrapping_add(additional))?
         }
         unsafe {
             assume(len == self.len());
-            let remaining = self.raw.get_unchecked_mut(len..);
-            assume(remaining.len() <= additional);
-            Ok(remaining)
+            assume(self.len() < self.capacity());
+            let remaining = self.raw[len..].len();
+            assume(remaining <= additional);
+            Ok(())
         }
     }
 
-    pub fn reserve(&mut self, additional: usize) -> &mut [MaybeUninit<T>] {
-        self.try_reserve(additional).unwrap_or_else(AllocErr::handle)
-    }
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) { self.try_reserve(additional).unwrap_or_else(AllocErr::handle) }
 
     pub fn push(&mut self, value: T) {
         if self.len().wrapping_add(1) == self.capacity() {

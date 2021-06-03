@@ -12,6 +12,7 @@ macro_rules! zst_static_with {
         $(#[$handle_meta:meta])*
         with struct $handle:ident
 
+        $(#[resizable = $resizable:meta])?
         as $type:ty
     ) => {
         $(#[$meta])*
@@ -129,6 +130,7 @@ macro_rules! zst_static_with {
                 }
             }
 
+            $(#[$resizable])?
             unsafe impl $crate::ResizableStorage for $name {
                 #[inline]
                 unsafe fn grow(
@@ -199,6 +201,7 @@ macro_rules! zst_static_with {
                 }
             }
 
+            $(#[$resizable])?
             unsafe impl $crate::SharedResizableStorage for $name {
                 #[inline]
                 unsafe fn shared_grow(

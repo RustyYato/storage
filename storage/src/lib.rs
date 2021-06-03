@@ -56,14 +56,24 @@ pub use global_as_ptr::GlobalAsPtrStorage;
 pub use multi::{MultiHandle, MultiStackStorage};
 pub use picker::{AndC, Choose, MaxAlign, MaxSize, MinAlign, MinSize, NotC, OrC, Picker};
 pub use single::{OffsetSingleStackStorage, SingleStackStorage};
+pub use single_ref::{OffsetSingleRefStorage, SingleRefStorage};
 
 use core::{alloc::Layout, num::NonZeroUsize, ptr::NonNull};
 pub use non_empty_layout::NonEmptyLayout;
 
 #[derive(Debug)]
-pub struct AllocErr(pub Layout);
+pub struct AllocErr<T = ()>(pub Layout, T);
 
 impl AllocErr {
+    pub const fn new(layout: Layout) -> Self { Self(layout, ()) }
+
+    pub const fn with<S>(self, meta: S) -> AllocErr<S> { AllocErr(self.0, meta) }
+}
+
+impl<S> AllocErr<S> {
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn defuse(self) -> S { self.1 }
+
     #[inline]
     pub fn handle<T>(self) -> T { handle_alloc_error(self.0) }
 }
@@ -140,6 +150,7 @@ fn test2() {
         pub struct Zst
         #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         with struct ZstHandle
+        #[resizable = cfg(FALSE)]
         as SingleStackStorage<Memory> = SingleStackStorage::new()
     }
 
@@ -174,6 +185,7 @@ fn global() {
     zst_static!(
         struct Zst
         with struct ZstHandle
+        #[resizable = cfg(FALSE)]
         as SingleStackStorage<Memory> = SingleStackStorage::new()
     );
 
@@ -198,4 +210,10 @@ fn global() {
 //      * be called concurrently with any other such function the same handle
 //      * be called concurrently with any `*get*` function
 
-pub unsafe fn asm(v: &mut vec::Vec<i32>) -> Option<i32> { v.try_pop() }
+#[allow(clippy::pedantic)]
+pub unsafe fn asm(v: &mut vec::Vec<i32>) {
+    let memory = v.remaining_space();
+    let storage = SingleRefStorage::new(memory);
+    let mut vec = vec::Vec::<i32, _>::new_in(storage);
+    vec.try_push(10).unwrap();
+}

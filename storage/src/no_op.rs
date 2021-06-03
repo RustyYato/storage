@@ -31,7 +31,7 @@ unsafe impl Storage for NoOpStorage {
         &mut self,
         layout: crate::NonEmptyLayout,
     ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout.into()))
+        Err(AllocErr::new(layout.into()))
     }
 
     #[inline]
@@ -39,7 +39,7 @@ unsafe impl Storage for NoOpStorage {
 
     #[inline]
     fn allocate(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout))
+        Err(AllocErr::new(layout))
     }
 
     #[inline]
@@ -50,12 +50,12 @@ unsafe impl Storage for NoOpStorage {
         &mut self,
         layout: crate::NonEmptyLayout,
     ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout.into()))
+        Err(AllocErr::new(layout.into()))
     }
 
     #[inline]
     fn allocate_zeroed(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout))
+        Err(AllocErr::new(layout))
     }
 }
 
@@ -67,7 +67,7 @@ unsafe impl ResizableStorage for NoOpStorage {
         _: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(new))
+        Err(AllocErr::new(new))
     }
 
     #[inline]
@@ -77,7 +77,7 @@ unsafe impl ResizableStorage for NoOpStorage {
         _: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(new))
+        Err(AllocErr::new(new))
     }
 
     #[inline]
@@ -87,7 +87,7 @@ unsafe impl ResizableStorage for NoOpStorage {
         _: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(new))
+        Err(AllocErr::new(new))
     }
 }
 
@@ -97,7 +97,7 @@ unsafe impl SharedStorage for NoOpStorage {
         &self,
         layout: crate::NonEmptyLayout,
     ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout.into()))
+        Err(AllocErr::new(layout.into()))
     }
 
     #[inline]
@@ -105,7 +105,7 @@ unsafe impl SharedStorage for NoOpStorage {
 
     #[inline]
     fn shared_allocate(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout))
+        Err(AllocErr::new(layout))
     }
 
     #[inline]
@@ -116,12 +116,12 @@ unsafe impl SharedStorage for NoOpStorage {
         &self,
         layout: crate::NonEmptyLayout,
     ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout.into()))
+        Err(AllocErr::new(layout.into()))
     }
 
     #[inline]
     fn shared_allocate_zeroed(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(layout))
+        Err(AllocErr::new(layout))
     }
 }
 
@@ -133,7 +133,7 @@ unsafe impl SharedResizableStorage for NoOpStorage {
         _: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(new))
+        Err(AllocErr::new(new))
     }
 
     #[inline]
@@ -143,7 +143,7 @@ unsafe impl SharedResizableStorage for NoOpStorage {
         _: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(new))
+        Err(AllocErr::new(new))
     }
 
     #[inline]
@@ -153,6 +153,6 @@ unsafe impl SharedResizableStorage for NoOpStorage {
         _: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr(new))
+        Err(AllocErr::new(new))
     }
 }

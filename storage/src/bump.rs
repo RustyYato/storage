@@ -89,12 +89,12 @@ unsafe impl<S: Storage, const MAX_ALIGN: usize> Storage for BumpStorage<S, MAX_A
         // but this is more expensive, and could be layered on top
         // if necessary
         if Self::MAX_ALIGN_POW2 < layout.align() {
-            return Err(AllocErr(layout))
+            return Err(AllocErr::new(layout))
         }
 
         let offset = self.offset.get_mut();
         let start = *offset;
-        let offset = offset.checked_sub(layout.size()).ok_or(AllocErr(layout))?;
+        let offset = offset.checked_sub(layout.size()).ok_or_else(|| AllocErr::new(layout))?;
         let offset = offset & !layout.align().wrapping_sub(1);
 
         let size = unsafe { NonZeroUsize::new_unchecked(start.wrapping_sub(offset)) };
@@ -169,7 +169,7 @@ unsafe impl<S: SharedGetMut, const MAX_ALIGN: usize> SharedStorage for BumpStora
         // but this is more expensive, and could be layered on top
         // if necessary
         if Self::MAX_ALIGN_POW2 < layout.align() {
-            return Err(AllocErr(layout))
+            return Err(AllocErr::new(layout))
         }
 
         let mut start = 0;
@@ -181,7 +181,7 @@ unsafe impl<S: SharedGetMut, const MAX_ALIGN: usize> SharedStorage for BumpStora
                 let offset = offset & !layout.align().wrapping_sub(1);
                 Some(offset)
             })
-            .map_err(|_| AllocErr(layout))?;
+            .map_err(|_| AllocErr::new(layout))?;
         let offset = offset - layout.size();
         let offset = offset & !layout.align().wrapping_sub(1);
 

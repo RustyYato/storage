@@ -86,14 +86,17 @@ impl<T, S: Storage> Box<[T], S> {
     /// # Panics
     ///
     /// If layout cannot be computed
-    pub fn try_uninit_slice_in(len: usize, mut storage: S) -> Result<Box<[MaybeUninit<T>], S>, AllocErr> {
+    pub fn try_uninit_slice_in(len: usize, mut storage: S) -> Result<Box<[MaybeUninit<T>], S>, AllocErr<S>> {
         let layout = Layout::new::<T>().repeat(len).unwrap().0;
-        let memory_block = storage.allocate(layout)?;
+        let memory_block = match storage.allocate(layout) {
+            Ok(mb) => mb,
+            Err(err) => return Err(err.with(storage)),
+        };
         Ok(Box {
             __: PhantomData,
             storage,
             handle: memory_block.handle,
-            meta: len,
+            meta: memory_block.size / mem::size_of::<T>(),
         })
     }
 }

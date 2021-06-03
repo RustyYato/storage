@@ -51,6 +51,18 @@ impl<T> SingleStackStorage<T> {
     }
 }
 
+impl<T> SingleStackStorage<T> {
+    const fn fits(layout: Layout) -> bool {
+        mem::size_of::<T>() >= layout.size() && mem::align_of::<T>() >= layout.align()
+    }
+
+    fn aquire(&self) -> bool {
+        self.allocated
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+    }
+}
+
 unsafe impl<T> FromPtr for SingleStackStorage<T> {
     unsafe fn from_ptr(&self, _: NonNull<u8>) {}
 }
@@ -77,7 +89,7 @@ unsafe impl<T> Storage for SingleStackStorage<T> {
                 handle: (),
             })
         } else {
-            Err(AllocErr(layout.into()))
+            Err(AllocErr::new(layout.into()))
         }
     }
 
@@ -90,7 +102,7 @@ unsafe impl<T> Storage for SingleStackStorage<T> {
                 handle: (),
             })
         } else {
-            Err(AllocErr(layout))
+            Err(AllocErr::new(layout))
         }
     }
 
@@ -103,18 +115,6 @@ unsafe impl<T> Storage for SingleStackStorage<T> {
     }
 }
 
-impl<T> SingleStackStorage<T> {
-    const fn fits(layout: Layout) -> bool {
-        mem::size_of::<T>() >= layout.size() && mem::align_of::<T>() >= layout.align()
-    }
-
-    fn aquire(&self) -> bool {
-        self.allocated
-            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
-    }
-}
-
 unsafe impl<T> SharedStorage for SingleStackStorage<T> {
     #[inline]
     fn shared_allocate_nonempty(&self, layout: NonEmptyLayout) -> Result<NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
@@ -124,7 +124,7 @@ unsafe impl<T> SharedStorage for SingleStackStorage<T> {
                 handle: (),
             })
         } else {
-            Err(AllocErr(layout.into()))
+            Err(AllocErr::new(layout.into()))
         }
     }
 
@@ -136,7 +136,7 @@ unsafe impl<T> SharedStorage for SingleStackStorage<T> {
                 handle: (),
             })
         } else {
-            Err(AllocErr(layout))
+            Err(AllocErr::new(layout))
         }
     }
 

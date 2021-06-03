@@ -7,6 +7,7 @@ macro_rules! zst_static {
         $(#[$handle_meta:meta])*
         with struct $handle:ident
 
+        $(#[resizable = $resizable:meta])?
         as $type:ty = $value:expr $(;)?
     ) => {
         zst_static_with! {
@@ -26,6 +27,7 @@ macro_rules! zst_static {
             $v struct $name
             $(#[$handle_meta])*
             with struct $handle
+            $(#[resizable = $resizable])?
             as $type
         }
     };
