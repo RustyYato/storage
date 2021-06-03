@@ -52,7 +52,7 @@ pub use alloc_error_handler::{handle_alloc_error, set_alloc_error_handler};
 
 pub use affix::{AffixHandle, AffixStorage, OffsetHandle, SharedOffsetHandle};
 pub use bump::{BumpHandle, BumpStorage};
-pub use global::{set_global_storage, Global, GlobalStorage};
+pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
 pub use multi::{MultiHandle, MultiStackStorage};
 pub use picker::{AndC, Choose, MaxAlign, MaxSize, MinAlign, MinSize, NotC, OrC, Picker};

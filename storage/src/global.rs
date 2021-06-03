@@ -26,7 +26,7 @@ const UNINIT: u8 = 0;
 const WRITING: u8 = 1;
 const INIT: u8 = 2;
 
-pub fn set_global_storage(global: GlobalStorageImp) -> bool {
+pub fn set_global_storage_with(global: impl FnOnce() -> GlobalStorageImp) -> bool {
     if INITIALIZER_STATE.load(Relaxed) != UNINIT
         || INITIALIZER_STATE
             .compare_exchange(UNINIT, WRITING, SeqCst, Relaxed)
@@ -36,13 +36,15 @@ pub fn set_global_storage(global: GlobalStorageImp) -> bool {
     }
 
     unsafe {
-        GLOBAL = global;
+        GLOBAL = global();
     }
 
     INITIALIZER_STATE.store(INIT, SeqCst);
 
     true
 }
+
+pub fn set_global_storage(global: GlobalStorageImp) -> bool { set_global_storage_with(move || global) }
 
 #[inline]
 fn global() -> GlobalStorageImp {

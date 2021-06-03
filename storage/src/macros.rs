@@ -4,10 +4,7 @@ mod install_global;
 mod zst_static;
 
 pub use core;
-use core::{
-    mem::MaybeUninit,
-    sync::atomic::{AtomicBool, Ordering::SeqCst},
-};
+use core::mem::MaybeUninit;
 
 use crate::{MemoryBlock, NonEmptyMemoryBlock};
 pub type MbR<H> = Result<crate::MemoryBlock<H>, crate::AllocErr>;
@@ -38,15 +35,6 @@ pub fn assert_thread_safe<T: Send + Sync>() {}
 #[allow(clippy::missing_const_for_fn)]
 pub unsafe fn assume_init_ref<T>(m: &MaybeUninit<T>) -> &T { &*m.as_ptr() }
 
-pub fn init_global() -> bool {
-    static INIT_GLOBAL_FLAG: AtomicBool = AtomicBool::new(false);
-    INIT_GLOBAL_FLAG.compare_exchange(false, true, SeqCst, SeqCst).is_ok()
-}
-
 #[cold]
 #[inline(never)]
 pub fn could_not_init() -> ! { core::panic!("Could not initialize global allocator") }
-
-#[cold]
-#[inline(never)]
-pub fn multiple_calls_to_install() -> ! { core::panic!("Tried to call `install_global_allocator` multiple times") }
