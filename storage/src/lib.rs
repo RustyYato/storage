@@ -31,6 +31,7 @@ mod no_op;
 mod pad;
 mod picker;
 mod single;
+mod single_ref;
 
 pub mod defaults;
 
@@ -209,11 +210,3 @@ fn global() {
 // * no raw storage function that could deallocate memory may ...
 //      * be called concurrently with any other such function the same handle
 //      * be called concurrently with any `*get*` function
-
-#[allow(clippy::pedantic)]
-pub unsafe fn asm(v: &mut vec::Vec<i32>) {
-    let memory = v.remaining_space();
-    let storage = SingleRefStorage::new(memory);
-    let mut vec = vec::Vec::<i32, _>::new_in(storage);
-    vec.try_push(10).unwrap();
-}
