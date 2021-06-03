@@ -7,9 +7,8 @@ use core::{
 };
 
 use crate::{
-    affix::{OffsetHandle, SharedOffsetHandle},
-    AllocErr, FromPtr, MultiStorage, NonEmptyLayout, ResizableStorage, SharedGetMut, SharedResizableStorage,
-    SharedStorage, Storage,
+    AllocErr, FromPtr, MultiStorage, NonEmptyLayout, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle,
+    SharedResizableStorage, SharedStorage, Storage,
 };
 
 pub trait GlobalStorage: SharedResizableStorage + Send + Sync + 'static {}

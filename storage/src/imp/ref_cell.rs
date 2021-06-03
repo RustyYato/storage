@@ -1,8 +1,8 @@
 use core::{cell::RefCell, ptr::NonNull};
 
 use crate::{
-    affix::{OffsetHandle, SharedOffsetHandle},
-    FromPtr, MultiStorage, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+    FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle, SharedResizableStorage,
+    SharedStorage, Storage,
 };
 
 unsafe impl<S: FromPtr + ?Sized> FromPtr for RefCell<S> {

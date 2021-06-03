@@ -1,8 +1,8 @@
 use core::ptr::NonNull;
 
 use crate::{
-    affix::{OffsetHandle, SharedOffsetHandle},
-    FromPtr, MultiStorage, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+    FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle, SharedResizableStorage,
+    SharedStorage, Storage,
 };
 
 unsafe impl<S: FromPtr + SharedStorage + ?Sized> FromPtr for &S {

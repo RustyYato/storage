@@ -1,8 +1,8 @@
 use crate::{
-    affix::{OffsetHandle, SharedOffsetHandle},
     core_traits::FromPtr,
     macros::{map_mbr, map_nembr},
-    MultiStorage, PointerHandle, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+    MultiStorage, OffsetHandle, PointerHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle,
+    SharedResizableStorage, SharedStorage, Storage,
 };
 use core::ptr::NonNull;
 

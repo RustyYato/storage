@@ -9,8 +9,8 @@ use core::{
 };
 
 use crate::{
-    affix::{OffsetHandle, SharedOffsetHandle},
-    AllocErr, FromPtr, MemoryBlock, NonEmptyLayout, NonEmptyMemoryBlock, SharedGetMut, SharedStorage, Storage,
+    AllocErr, FromPtr, MemoryBlock, NonEmptyLayout, NonEmptyMemoryBlock, OffsetHandle, SharedGetMut,
+    SharedOffsetHandle, SharedStorage, Storage,
 };
 
 pub struct SingleRefStorage<'a, T> {

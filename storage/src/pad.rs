@@ -1,7 +1,6 @@
 use crate::{
-    affix::{OffsetHandle, SharedOffsetHandle},
-    FromPtr, MultiStorage, NonEmptyLayout, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage,
-    Storage,
+    FromPtr, MultiStorage, NonEmptyLayout, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle,
+    SharedResizableStorage, SharedStorage, Storage,
 };
 use core::{alloc::Layout, ptr::NonNull};
 

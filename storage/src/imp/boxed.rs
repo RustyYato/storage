@@ -1,7 +1,6 @@
 use crate::{
-    affix::{OffsetHandle, SharedOffsetHandle},
-    boxed::Box,
-    FromPtr, MultiStorage, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+    boxed::Box, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle,
+    SharedResizableStorage, SharedStorage, Storage,
 };
 use core::ptr::NonNull;
 

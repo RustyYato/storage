@@ -21,7 +21,7 @@ mod core_traits;
 
 mod non_empty_layout;
 
-pub mod affix;
+mod affix;
 mod bump;
 mod global;
 mod global_as_ptr;
@@ -50,7 +50,7 @@ pub use core_traits::{
 
 pub use alloc_error_handler::{handle_alloc_error, set_alloc_error_handler};
 
-pub use affix::{AffixHandle, AffixStorage};
+pub use affix::{AffixHandle, AffixStorage, OffsetHandle, SharedOffsetHandle};
 pub use bump::{BumpHandle, BumpStorage};
 pub use global::{set_global_storage, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
