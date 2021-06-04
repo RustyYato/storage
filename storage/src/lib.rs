@@ -1,4 +1,4 @@
-// #![no_std]
+#![no_std]
 #![feature(core_intrinsics, ptr_metadata, unsize, layout_for_ptr, alloc_layout_extra)]
 #![deny(clippy::pedantic, clippy::perf)]
 #![warn(clippy::nursery)]
@@ -34,6 +34,7 @@ mod pad;
 mod picker;
 mod single;
 mod single_ref;
+mod zero_sized;
 
 mod freelist;
 
@@ -66,6 +67,7 @@ pub use null::NullStorage;
 pub use picker::{AndC, Choose, MaxAlign, MaxSize, MinAlign, MinSize, NotC, OrC, Picker};
 pub use single::{OffsetSingleStackStorage, SingleStackStorage};
 pub use single_ref::{OffsetSingleRefStorage, SingleRefStorage};
+pub use zero_sized::ZeroSizedStorage;
 
 use core::{alloc::Layout, num::NonZeroUsize, ptr::NonNull};
 pub use non_empty_layout::NonEmptyLayout;
