@@ -18,6 +18,12 @@ pub struct BumpStorage<S: Storage, const MAX_ALIGN: usize> {
 }
 
 impl<S: Storage, const MAX_ALIGN: usize> BumpStorage<S, MAX_ALIGN> {
+    pub unsafe fn reset(&mut self, max_offset: usize) { *self.offset.get_mut() = max_offset; }
+
+    pub unsafe fn shared_reset(&self, max_offset: usize) { self.offset.store(max_offset, Ordering::SeqCst) }
+}
+
+impl<S: Storage, const MAX_ALIGN: usize> BumpStorage<S, MAX_ALIGN> {
     const MAX_ALIGN_POW2: usize = MAX_ALIGN.next_power_of_two();
 
     pub fn new(storage: S, space: usize) -> Self { Self::try_new(storage, space).unwrap_or_else(AllocErr::handle) }
@@ -26,7 +32,7 @@ impl<S: Storage, const MAX_ALIGN: usize> BumpStorage<S, MAX_ALIGN> {
 
     /// # Panics
     ///
-    /// if `Layout::from_size_align(space, MAX_ALIGN.next_power_of_two())` panics
+    /// if `Layout::from_size_align(space, MAX_ALIGN.next_power_of_two())` returns Err
     pub fn try_new(mut storage: S, space: usize) -> Result<Self, AllocErr> {
         let memory_block = storage.allocate(Layout::from_size_align(space, Self::MAX_ALIGN_POW2).unwrap())?;
         Ok(Self {
