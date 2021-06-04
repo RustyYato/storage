@@ -1,27 +1,40 @@
 use core::{alloc::Layout, ptr::NonNull};
+use std::marker::PhantomData;
 
-use crate::{AllocErr, FromPtr, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage};
+use crate::{
+    AllocErr, FromPtr, Handle, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+};
 
-pub struct NoOpStorage;
+pub struct NullStorage<T = core::convert::Infallible>(PhantomData<T>);
 
-unsafe impl FromPtr for NoOpStorage {
+impl NullStorage {
     #[inline]
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { ptr }
+    pub const fn new() -> Self { Self::with_handle() }
 }
 
-unsafe impl SharedGetMut for NoOpStorage {
+impl<T> NullStorage<T> {
     #[inline]
-    unsafe fn shared_get_mut(&self, handle: Self::Handle) -> NonNull<u8> { handle }
+    pub const fn with_handle() -> Self { Self(PhantomData) }
 }
 
-unsafe impl Storage for NoOpStorage {
-    type Handle = NonNull<u8>;
+unsafe impl<H: Handle> FromPtr for NullStorage<H> {
+    #[inline]
+    unsafe fn from_ptr(&self, _: NonNull<u8>) -> Self::Handle { core::hint::unreachable_unchecked() }
+}
+
+unsafe impl<H: Handle> SharedGetMut for NullStorage<H> {
+    #[inline]
+    unsafe fn shared_get_mut(&self, _: Self::Handle) -> NonNull<u8> { core::hint::unreachable_unchecked() }
+}
+
+unsafe impl<H: Handle> Storage for NullStorage<H> {
+    type Handle = H;
 
     #[inline]
-    unsafe fn get(&self, handle: Self::Handle) -> NonNull<u8> { handle }
+    unsafe fn get(&self, _: Self::Handle) -> NonNull<u8> { core::hint::unreachable_unchecked() }
 
     #[inline]
-    unsafe fn get_mut(&mut self, handle: Self::Handle) -> NonNull<u8> { handle }
+    unsafe fn get_mut(&mut self, _: Self::Handle) -> NonNull<u8> { core::hint::unreachable_unchecked() }
 
     #[inline]
     fn allocate_nonempty(
@@ -32,7 +45,9 @@ unsafe impl Storage for NoOpStorage {
     }
 
     #[inline]
-    unsafe fn deallocate_nonempty(&mut self, _: Self::Handle, _: crate::NonEmptyLayout) {}
+    unsafe fn deallocate_nonempty(&mut self, _: Self::Handle, _: crate::NonEmptyLayout) {
+        core::hint::unreachable_unchecked()
+    }
 
     #[inline]
     fn allocate(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
@@ -40,7 +55,7 @@ unsafe impl Storage for NoOpStorage {
     }
 
     #[inline]
-    unsafe fn deallocate(&mut self, _: Self::Handle, _: Layout) {}
+    unsafe fn deallocate(&mut self, _: Self::Handle, _: Layout) { core::hint::unreachable_unchecked() }
 
     #[inline]
     fn allocate_nonempty_zeroed(
@@ -56,15 +71,15 @@ unsafe impl Storage for NoOpStorage {
     }
 }
 
-unsafe impl ResizableStorage for NoOpStorage {
+unsafe impl<H: Handle> ResizableStorage for NullStorage<H> {
     #[inline]
     unsafe fn grow(
         &mut self,
         _: Self::Handle,
         _: Layout,
-        new: Layout,
+        _: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr::new(new))
+        core::hint::unreachable_unchecked()
     }
 
     #[inline]
@@ -72,9 +87,9 @@ unsafe impl ResizableStorage for NoOpStorage {
         &mut self,
         _: Self::Handle,
         _: Layout,
-        new: Layout,
+        _: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr::new(new))
+        core::hint::unreachable_unchecked()
     }
 
     #[inline]
@@ -82,13 +97,13 @@ unsafe impl ResizableStorage for NoOpStorage {
         &mut self,
         _: Self::Handle,
         _: Layout,
-        new: Layout,
+        _: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr::new(new))
+        core::hint::unreachable_unchecked()
     }
 }
 
-unsafe impl SharedStorage for NoOpStorage {
+unsafe impl<H: Handle> SharedStorage for NullStorage<H> {
     #[inline]
     fn shared_allocate_nonempty(
         &self,
@@ -98,7 +113,9 @@ unsafe impl SharedStorage for NoOpStorage {
     }
 
     #[inline]
-    unsafe fn shared_deallocate_nonempty(&self, _: Self::Handle, _: crate::NonEmptyLayout) {}
+    unsafe fn shared_deallocate_nonempty(&self, _: Self::Handle, _: crate::NonEmptyLayout) {
+        core::hint::unreachable_unchecked()
+    }
 
     #[inline]
     fn shared_allocate(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
@@ -106,7 +123,7 @@ unsafe impl SharedStorage for NoOpStorage {
     }
 
     #[inline]
-    unsafe fn shared_deallocate(&self, _: Self::Handle, _: Layout) {}
+    unsafe fn shared_deallocate(&self, _: Self::Handle, _: Layout) { core::hint::unreachable_unchecked() }
 
     #[inline]
     fn shared_allocate_nonempty_zeroed(
@@ -122,15 +139,15 @@ unsafe impl SharedStorage for NoOpStorage {
     }
 }
 
-unsafe impl SharedResizableStorage for NoOpStorage {
+unsafe impl<H: Handle> SharedResizableStorage for NullStorage<H> {
     #[inline]
     unsafe fn shared_grow(
         &self,
         _: Self::Handle,
         _: Layout,
-        new: Layout,
+        _: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr::new(new))
+        core::hint::unreachable_unchecked()
     }
 
     #[inline]
@@ -138,9 +155,9 @@ unsafe impl SharedResizableStorage for NoOpStorage {
         &self,
         _: Self::Handle,
         _: Layout,
-        new: Layout,
+        _: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr::new(new))
+        core::hint::unreachable_unchecked()
     }
 
     #[inline]
@@ -148,8 +165,8 @@ unsafe impl SharedResizableStorage for NoOpStorage {
         &self,
         _: Self::Handle,
         _: Layout,
-        new: Layout,
+        _: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        Err(AllocErr::new(new))
+        core::hint::unreachable_unchecked()
     }
 }

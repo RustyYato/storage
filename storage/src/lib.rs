@@ -29,6 +29,7 @@ mod global;
 mod global_as_ptr;
 mod imp;
 mod no_op;
+mod null;
 mod pad;
 mod picker;
 mod single;
@@ -61,6 +62,7 @@ pub use counting_bump::CountingBumpStorage;
 pub use freelist::FreeListStorage;
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
+pub use null::NullStorage;
 pub use picker::{AndC, Choose, MaxAlign, MaxSize, MinAlign, MinSize, NotC, OrC, Picker};
 pub use single::{OffsetSingleStackStorage, SingleStackStorage};
 pub use single_ref::{OffsetSingleRefStorage, SingleRefStorage};
@@ -183,6 +185,12 @@ fn global() {
     install_global_allocator! {
         let GLOBAL: GrowableMemory = {
             let pages = FreeListStorage::new(NonZeroUsize::new(4096).unwrap(), GrowableMemory);
+            let pages = Picker {
+                choose: MinSize::<4096>,
+                left: pages,
+                right: NullStorage::with_handle(),
+            };
+            SharedStorage::shared_allocate(&pages, Layout::new::<[u8; 4095]>()).unwrap();
             GrowableMemory
         };
     }
