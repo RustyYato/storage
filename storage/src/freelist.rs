@@ -11,7 +11,7 @@ use crate::{AllocErr, Handle, NonEmptyLayout, NonEmptyMemoryBlock, SharedGetMut,
 
 struct FreeListItem<H> {
     layout: Cell<Layout>,
-    handle: Cell<FreeListHandle<H>>,
+    handle: Cell<H>,
 }
 
 pub struct FreeListStorage<S: Storage> {
@@ -30,17 +30,10 @@ impl<S: Storage> Drop for FreeListStorage<S> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct FreeListHandle<H>(H);
-
 const MASK_STATUS: u8 = !SINGLE_LOCK;
 
 const SINGLE_LOCK: u8 = 0b1000_0000;
 const SINGLE_STATUS: u8 = 1;
-
-unsafe impl<H: Handle> Handle for FreeListHandle<H> {
-    unsafe fn dangling(align: usize) -> Self { Self(Handle::dangling(align)) }
-}
 
 fn free_list_layout<H>(max_size: usize) -> Result<(Layout, usize, usize), LayoutError> {
     let bitflags_len = (max_size / 7) + usize::from(max_size % 7 != 0);
@@ -128,19 +121,17 @@ impl<S: Storage> FreeListStorage<S> {
 }
 
 unsafe impl<S: SharedGetMut> SharedGetMut for FreeListStorage<S> {
-    unsafe fn shared_get_mut(&self, FreeListHandle(handle): Self::Handle) -> core::ptr::NonNull<u8> {
+    unsafe fn shared_get_mut(&self, handle: Self::Handle) -> core::ptr::NonNull<u8> {
         self.storage.shared_get_mut(handle)
     }
 }
 
 unsafe impl<S: Storage> Storage for FreeListStorage<S> {
-    type Handle = FreeListHandle<S::Handle>;
+    type Handle = S::Handle;
 
-    unsafe fn get(&self, FreeListHandle(handle): Self::Handle) -> core::ptr::NonNull<u8> { self.storage.get(handle) }
+    unsafe fn get(&self, handle: Self::Handle) -> core::ptr::NonNull<u8> { self.storage.get(handle) }
 
-    unsafe fn get_mut(&mut self, FreeListHandle(handle): Self::Handle) -> core::ptr::NonNull<u8> {
-        self.storage.get_mut(handle)
-    }
+    unsafe fn get_mut(&mut self, handle: Self::Handle) -> core::ptr::NonNull<u8> { self.storage.get_mut(handle) }
 
     fn allocate_nonempty(
         &mut self,
@@ -175,7 +166,7 @@ unsafe impl<S: Storage> Storage for FreeListStorage<S> {
 
         let memory = self.storage.allocate_nonempty(layout)?;
         Ok(NonEmptyMemoryBlock {
-            handle: FreeListHandle(memory.handle),
+            handle: memory.handle,
             size: memory.size,
         })
     }
@@ -202,7 +193,7 @@ unsafe impl<S: Storage> Storage for FreeListStorage<S> {
             }
         }
 
-        self.storage.deallocate_nonempty(handle.0, layout)
+        self.storage.deallocate_nonempty(handle, layout)
     }
 }
 
@@ -212,7 +203,7 @@ impl<S: SharedStorage> FreeListStorage<S> {
         bitflags: &[AtomicU8],
         layout: NonEmptyLayout,
         was_blocked: &mut bool,
-    ) -> Option<NonEmptyMemoryBlock<FreeListHandle<H>>> {
+    ) -> Option<NonEmptyMemoryBlock<H>> {
         for (i, owned) in bitflags.iter().enumerate() {
             let fetch = owned.load(Ordering::Relaxed);
 
@@ -263,7 +254,7 @@ impl<S: SharedStorage> FreeListStorage<S> {
     fn attempt_to_deallocate<H: Copy>(
         free_list: &[FreeListItem<H>],
         bitflags: &[AtomicU8],
-        handle: FreeListHandle<H>,
+        handle: H,
         layout: NonEmptyLayout,
         was_blocked: &mut bool,
     ) -> bool {
@@ -329,7 +320,7 @@ unsafe impl<S: SharedStorage> SharedStorage for FreeListStorage<S> {
 
         let memory = self.storage.shared_allocate_nonempty(layout)?;
         Ok(NonEmptyMemoryBlock {
-            handle: FreeListHandle(memory.handle),
+            handle: memory.handle,
             size: memory.size,
         })
     }
@@ -348,6 +339,6 @@ unsafe impl<S: SharedStorage> SharedStorage for FreeListStorage<S> {
             }
         }
 
-        self.storage.shared_deallocate_nonempty(handle.0, layout)
+        self.storage.shared_deallocate_nonempty(handle, layout)
     }
 }

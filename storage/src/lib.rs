@@ -57,7 +57,7 @@ pub use affix::{
     AffixHandle, AffixStorage, ConstLayoutProvider, OffsetHandle, SharedOffsetHandle, TypedLayoutProvider,
 };
 pub use bump::{BumpHandle, BumpStorage};
-pub use freelist::{FreeListHandle, FreeListStorage};
+pub use freelist::FreeListStorage;
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
 pub use multi::{MultiHandle, MultiStackStorage};
