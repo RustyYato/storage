@@ -98,6 +98,17 @@ unsafe impl Handle for NonNull<u8> {
     unsafe fn dangling(align: usize) -> Self { Self::new_unchecked(align as *mut u8) }
 }
 
+unsafe impl Handle for core::convert::Infallible {
+    #[inline]
+    unsafe fn dangling(_: usize) -> Self {
+        #[cold]
+        #[inline(never)]
+        fn dangling_infallible() -> ! { panic!("tried to create a dangling infallible") }
+
+        dangling_infallible()
+    }
+}
+
 unsafe impl PointerHandle for NonNull<u8> {
     #[inline]
     unsafe fn get(self) -> NonNull<u8> { self }
@@ -203,13 +214,6 @@ fn global() {
     assert_eq!(*bx2, 0xbeef_dead);
 }
 
-// INVARIANTS
-//
-// * allocate cannot invalidate allocated handles
-// * no raw storage function that could deallocate memory may ...
-//      * be called concurrently with any other such function the same handle
-//      * be called concurrently with any `*get*` function
-
 #[test]
 fn freelist() {
     use boxed::Box;
@@ -234,3 +238,10 @@ fn freelist() {
     let b = Box::new_in([0_u64; 3], storage);
     drop((a, b));
 }
+
+// INVARIANTS
+//
+// * allocate cannot invalidate allocated handles
+// * no raw storage function that could deallocate memory may ...
+//      * be called concurrently with any other such function the same handle
+//      * be called concurrently with any `*get*` function
