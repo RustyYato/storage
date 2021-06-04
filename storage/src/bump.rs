@@ -20,7 +20,11 @@ pub struct BumpStorage<S: Storage, const MAX_ALIGN: usize> {
 impl<S: Storage, const MAX_ALIGN: usize> BumpStorage<S, MAX_ALIGN> {
     pub unsafe fn reset(&mut self, max_offset: usize) { *self.offset.get_mut() = max_offset; }
 
-    pub unsafe fn shared_reset(&self, max_offset: usize) { self.offset.store(max_offset, Ordering::SeqCst) }
+    pub unsafe fn shared_reset_if_eq(&self, current_offset: usize, max_offset: usize) -> bool {
+        self.offset
+            .compare_exchange(current_offset, max_offset, Ordering::SeqCst, Ordering::Relaxed)
+            .is_ok()
+    }
 }
 
 impl<S: Storage, const MAX_ALIGN: usize> BumpStorage<S, MAX_ALIGN> {

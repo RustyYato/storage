@@ -24,6 +24,7 @@ mod non_empty_layout;
 
 mod affix;
 mod bump;
+mod counting_bump;
 mod global;
 mod global_as_ptr;
 mod imp;
@@ -56,6 +57,7 @@ pub use affix::{
     AffixHandle, AffixStorage, ConstLayoutProvider, OffsetHandle, SharedOffsetHandle, TypedLayoutProvider,
 };
 pub use bump::{BumpHandle, BumpStorage};
+pub use counting_bump::CountingBumpStorage;
 pub use freelist::FreeListStorage;
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
