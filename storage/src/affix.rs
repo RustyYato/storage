@@ -3,7 +3,8 @@
 use core::{alloc::Layout, convert::TryFrom, marker::PhantomData, mem, num::NonZeroUsize, ptr::NonNull};
 
 use crate::{
-    AllocErr, Handle, MemoryBlock, NonEmptyLayout, NonEmptyMemoryBlock, ResizableStorage, SharedStorage, Storage,
+    AllocErr, Handle, MemoryBlock, NonEmptyLayout, NonEmptyMemoryBlock, ResizableStorage, SharedGetMut,
+    SharedResizableStorage, SharedStorage, Storage,
 };
 
 struct CoVariant<T>(fn() -> T);
@@ -149,6 +150,12 @@ pub unsafe trait OffsetHandle: Storage {
 
 pub unsafe trait SharedOffsetHandle: OffsetHandle + SharedStorage {
     unsafe fn shared_offset(&self, handle: Self::Handle, offset: isize) -> Self::Handle;
+}
+
+unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: SharedGetMut + OffsetHandle> SharedGetMut
+    for AffixStorage<Pre, Suf, S>
+{
+    unsafe fn shared_get_mut(&self, handle: Self::Handle) -> NonNull<u8> { self.inner.shared_get_mut(handle.inner) }
 }
 
 unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: OffsetHandle> Storage for AffixStorage<Pre, Suf, S> {
@@ -368,6 +375,227 @@ unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: ResizableStorage + Offs
             handle: AffixHandle {
                 __: PhantomData,
                 inner: self.inner.offset(memory_block.handle, new_pre as isize),
+            },
+        })
+    }
+}
+
+unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: SharedOffsetHandle> SharedStorage
+    for AffixStorage<Pre, Suf, S>
+{
+    fn shared_allocate_nonempty(&self, layout: NonEmptyLayout) -> Result<NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
+        let (layout, prefix, _suffix) = Self::surround(layout.into()).ok_or_else(|| AllocErr::new(layout.into()))?;
+
+        let memory_block = self
+            .inner
+            .shared_allocate_nonempty(unsafe { NonEmptyLayout::new_unchecked(layout) })?;
+
+        Ok(NonEmptyMemoryBlock {
+            size: unsafe { NonZeroUsize::new_unchecked(layout.size()) },
+            handle: AffixHandle {
+                __: PhantomData,
+                inner: unsafe { self.inner.shared_offset(memory_block.handle, prefix as isize) },
+            },
+        })
+    }
+
+    unsafe fn shared_deallocate_nonempty(&self, handle: Self::Handle, layout: NonEmptyLayout) {
+        let (layout, prefix, _suffix) = Self::surround_unchecked(layout.into());
+        let prefix = prefix as isize;
+        let handle = self.inner.shared_offset(handle.inner, -prefix);
+        self.inner
+            .shared_deallocate_nonempty(handle, NonEmptyLayout::new_unchecked(layout))
+    }
+
+    fn shared_allocate(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        let (layout, prefix, _suffix) = Self::surround(layout).ok_or_else(|| AllocErr::new(layout))?;
+
+        let memory_block = if Self::NO_AFFIX {
+            self.inner.shared_allocate(layout)
+        } else {
+            self.inner
+                .shared_allocate_nonempty(unsafe { NonEmptyLayout::new_unchecked(layout) })
+                .map(Into::into)
+        };
+        let memory_block = memory_block?;
+
+        Ok(MemoryBlock {
+            size: layout.size(),
+            handle: AffixHandle {
+                __: PhantomData,
+                inner: unsafe { self.inner.shared_offset(memory_block.handle, prefix as isize) },
+            },
+        })
+    }
+
+    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: Layout) {
+        let (layout, prefix, _suffix) = Self::surround_unchecked(layout);
+        let prefix = prefix as isize;
+        let handle = self.inner.shared_offset(handle.inner, -prefix);
+        if Self::NO_AFFIX {
+            self.inner.shared_deallocate(handle, layout)
+        } else {
+            self.inner
+                .shared_deallocate_nonempty(handle, NonEmptyLayout::new_unchecked(layout))
+        }
+    }
+
+    fn shared_allocate_nonempty_zeroed(
+        &self,
+        layout: NonEmptyLayout,
+    ) -> Result<NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
+        let (layout, prefix, _suffix) = Self::surround(layout.into()).ok_or_else(|| AllocErr::new(layout.into()))?;
+
+        let memory_block = self
+            .inner
+            .shared_allocate_nonempty_zeroed(unsafe { NonEmptyLayout::new_unchecked(layout) })?;
+
+        Ok(NonEmptyMemoryBlock {
+            size: unsafe { NonZeroUsize::new_unchecked(layout.size()) },
+            handle: AffixHandle {
+                __: PhantomData,
+                inner: unsafe { self.inner.shared_offset(memory_block.handle, prefix as isize) },
+            },
+        })
+    }
+
+    fn shared_allocate_zeroed(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        let (layout, prefix, _suffix) = Self::surround(layout).ok_or_else(|| AllocErr::new(layout))?;
+
+        let memory_block = if Self::NO_AFFIX {
+            self.inner.shared_allocate_zeroed(layout)
+        } else {
+            self.inner
+                .shared_allocate_nonempty_zeroed(unsafe { NonEmptyLayout::new_unchecked(layout) })
+                .map(Into::into)
+        };
+        let memory_block = memory_block?;
+
+        Ok(MemoryBlock {
+            size: layout.size(),
+            handle: AffixHandle {
+                __: PhantomData,
+                inner: unsafe { self.inner.shared_offset(memory_block.handle, prefix as isize) },
+            },
+        })
+    }
+}
+
+unsafe impl<Pre: LayoutProvider, Suf: LayoutProvider, S: SharedResizableStorage + SharedOffsetHandle>
+    SharedResizableStorage for AffixStorage<Pre, Suf, S>
+{
+    unsafe fn shared_grow(
+        &self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
+        if Self::NO_AFFIX {
+            return self
+                .inner
+                .shared_grow(handle.inner, old, new)
+                .map(|memory_block| MemoryBlock {
+                    size: memory_block.size,
+                    handle: AffixHandle {
+                        __: PhantomData,
+                        inner: memory_block.handle,
+                    },
+                })
+        }
+
+        let (new, new_pre, new_suf) = Self::surround(new).ok_or_else(|| AllocErr::new(new))?;
+        let (old, _old_pre, old_suf) = Self::surround_unchecked(old);
+
+        let memory_block = self.inner.shared_grow(handle.inner, old, new)?;
+
+        if Suf::SIZE != 0 {
+            let ptr = self.inner.shared_get_mut(memory_block.handle).as_ptr();
+            ptr.add(old_suf).copy_to(ptr.add(new_suf), Suf::SIZE)
+        }
+
+        Ok(MemoryBlock {
+            size: new.size(),
+            handle: AffixHandle {
+                __: PhantomData,
+                inner: self.inner.shared_offset(memory_block.handle, new_pre as isize),
+            },
+        })
+    }
+
+    unsafe fn shared_grow_zeroed(
+        &self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
+        if Self::NO_AFFIX {
+            return self
+                .inner
+                .shared_grow_zeroed(handle.inner, old, new)
+                .map(|memory_block| MemoryBlock {
+                    size: memory_block.size,
+                    handle: AffixHandle {
+                        __: PhantomData,
+                        inner: memory_block.handle,
+                    },
+                })
+        }
+
+        let (new, new_pre, new_suf) = Self::surround(new).ok_or_else(|| AllocErr::new(new))?;
+        let (old, _old_pre, old_suf) = Self::surround_unchecked(old);
+
+        let memory_block = self.inner.shared_grow_zeroed(handle.inner, old, new)?;
+
+        if Suf::SIZE != 0 {
+            let ptr = self.inner.shared_get_mut(memory_block.handle).as_ptr();
+            ptr.add(old_suf).copy_to(ptr.add(new_suf), Suf::SIZE);
+            let zero_count = Suf::SIZE.min(new_suf - old_suf);
+            ptr.add(old_suf).write_bytes(0, zero_count);
+        }
+
+        Ok(MemoryBlock {
+            size: new.size(),
+            handle: AffixHandle {
+                __: PhantomData,
+                inner: self.inner.shared_offset(memory_block.handle, new_pre as isize),
+            },
+        })
+    }
+
+    unsafe fn shared_shrink(
+        &self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<MemoryBlock<Self::Handle>, AllocErr> {
+        if Self::NO_AFFIX {
+            return self
+                .inner
+                .shared_shrink(handle.inner, old, new)
+                .map(|memory_block| MemoryBlock {
+                    size: memory_block.size,
+                    handle: AffixHandle {
+                        __: PhantomData,
+                        inner: memory_block.handle,
+                    },
+                })
+        }
+
+        let (old, _old_pre, old_suf) = Self::surround_unchecked(old);
+        let (new, new_pre, new_suf) = Self::surround_unchecked(new);
+
+        if Suf::SIZE != 0 {
+            let ptr = self.inner.shared_get_mut(handle.inner).as_ptr();
+            ptr.add(old_suf).copy_to(ptr.add(new_suf), Suf::SIZE);
+        }
+
+        let memory_block = self.inner.shared_shrink(handle.inner, old, new)?;
+
+        Ok(MemoryBlock {
+            size: new.size(),
+            handle: AffixHandle {
+                __: PhantomData,
+                inner: self.inner.shared_offset(memory_block.handle, new_pre as isize),
             },
         })
     }
