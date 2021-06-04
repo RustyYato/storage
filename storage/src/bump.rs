@@ -6,8 +6,8 @@ use core::{
 };
 
 use crate::{
-    AllocErr, FromPtr, Handle, MemoryBlock, MultiStorage, NonEmptyLayout, NonEmptyMemoryBlock, ResizableStorage,
-    SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+    AllocErr, FromPtr, Handle, MemoryBlock, MultiStorage, NonEmptyLayout, NonEmptyMemoryBlock, OffsetHandle,
+    ResizableStorage, SharedGetMut, SharedOffsetHandle, SharedResizableStorage, SharedStorage, Storage,
 };
 
 #[must_use = "storages don't do anything unless they are used"]
@@ -47,6 +47,22 @@ unsafe impl Handle for BumpHandle {
 impl BumpHandle {
     #[must_use = "`MultiHandle::is_dangling` should be used"]
     pub const fn is_dangling(self) -> bool { self.0 == usize::MAX }
+}
+
+unsafe impl<S: Storage, const MAX_ALIGN: usize> OffsetHandle for BumpStorage<S, MAX_ALIGN> {
+    unsafe fn offset(&mut self, BumpHandle(handle): Self::Handle, offset: isize) -> Self::Handle {
+        let offset = offset.to_ne_bytes();
+        let offset = usize::from_ne_bytes(offset);
+        BumpHandle(handle.wrapping_add(offset))
+    }
+}
+
+unsafe impl<S: SharedGetMut, const MAX_ALIGN: usize> SharedOffsetHandle for BumpStorage<S, MAX_ALIGN> {
+    unsafe fn shared_offset(&self, BumpHandle(handle): Self::Handle, offset: isize) -> Self::Handle {
+        let offset = offset.to_ne_bytes();
+        let offset = usize::from_ne_bytes(offset);
+        BumpHandle(handle.wrapping_add(offset))
+    }
 }
 
 unsafe impl<S: Storage, const MAX_ALIGN: usize> FromPtr for BumpStorage<S, MAX_ALIGN> {
@@ -92,10 +108,11 @@ unsafe impl<S: Storage, const MAX_ALIGN: usize> Storage for BumpStorage<S, MAX_A
             return Err(AllocErr::new(layout))
         }
 
-        let offset = self.offset.get_mut();
-        let start = *offset;
-        let offset = offset.checked_sub(layout.size()).ok_or_else(|| AllocErr::new(layout))?;
+        let start = *self.offset.get_mut();
+
+        let offset = start.checked_sub(layout.size()).ok_or_else(|| AllocErr::new(layout))?;
         let offset = offset & !layout.align().wrapping_sub(1);
+        *self.offset.get_mut() = offset;
 
         let size = unsafe { NonZeroUsize::new_unchecked(start.wrapping_sub(offset)) };
 
@@ -173,17 +190,19 @@ unsafe impl<S: SharedGetMut, const MAX_ALIGN: usize> SharedStorage for BumpStora
         }
 
         let mut start = 0;
-        let offset = self
-            .offset
+        let mut end = 0;
+        self.offset
             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |offset| {
                 start = offset;
+
                 let offset = offset.checked_sub(layout.size())?;
                 let offset = offset & !layout.align().wrapping_sub(1);
+                end = offset;
+
                 Some(offset)
             })
             .map_err(|_| AllocErr::new(layout))?;
-        let offset = offset - layout.size();
-        let offset = offset & !layout.align().wrapping_sub(1);
+        let offset = end;
 
         let size = unsafe { NonZeroUsize::new_unchecked(start.wrapping_sub(offset)) };
 

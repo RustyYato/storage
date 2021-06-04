@@ -19,6 +19,7 @@ extern crate std;
 
 mod core_traits;
 
+mod backoff;
 mod non_empty_layout;
 
 mod affix;
@@ -32,6 +33,8 @@ mod pad;
 mod picker;
 mod single;
 mod single_ref;
+
+mod freelist;
 
 pub mod defaults;
 
@@ -50,8 +53,11 @@ pub use core_traits::{
 
 pub use alloc_error_handler::{handle_alloc_error, set_alloc_error_handler};
 
-pub use affix::{AffixHandle, AffixStorage, OffsetHandle, SharedOffsetHandle};
+pub use affix::{
+    AffixHandle, AffixStorage, ConstLayoutProvider, OffsetHandle, SharedOffsetHandle, TypedLayoutProvider,
+};
 pub use bump::{BumpHandle, BumpStorage};
+pub use freelist::{FreeListHandle, FreeListStorage};
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
 pub use multi::{MultiHandle, MultiStackStorage};
@@ -185,8 +191,6 @@ fn global() {
     trait GlobalFromPtr: GlobalStorage + FromPtr {}
     impl<T: ?Sized + GlobalStorage + FromPtr> GlobalFromPtr for T {}
 
-    fn alloc_error_handler(layout: Layout) -> ! { panic!("{:?}", layout) }
-
     zst_static!(
         struct CoreMemory
         with struct CoreMemoryHandle
@@ -201,6 +205,7 @@ fn global() {
         __BUMPMEM __BUMPONCE
     );
 
+    fn alloc_error_handler(layout: Layout) -> ! { panic!("{:?}", layout) }
     set_alloc_error_handler(alloc_error_handler);
 
     install_global_allocator! {
@@ -221,3 +226,25 @@ fn global() {
 // * no raw storage function that could deallocate memory may ...
 //      * be called concurrently with any other such function the same handle
 //      * be called concurrently with any `*get*` function
+
+#[test]
+fn freelist() {
+    use boxed::Box;
+    #[repr(align(8))]
+    struct Memory([u8; 128 + 32 + 32]);
+
+    fn alloc_error_handler(layout: Layout) -> ! { panic!("{:?}", layout) }
+    set_alloc_error_handler(alloc_error_handler);
+
+    let bump = BumpStorage::<_, { core::mem::align_of::<Memory>() }>::new(SingleStackStorage::<Memory>::new(), 0);
+    let storage = FreeListStorage::new(NonZeroUsize::new(4).unwrap(), bump);
+    let storage = &storage;
+    let a = Box::new_in([0_u64; 5], storage);
+    drop(a);
+    let a = Box::new_in([0_u64; 5], storage);
+    let b = Box::new_in([0_u64; 3], storage);
+    drop((a, b));
+    let a = Box::new_in([0_u64; 4], storage);
+    let b = Box::new_in([0_u64; 3], storage);
+    drop((a, b));
+}
