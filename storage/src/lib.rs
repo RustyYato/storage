@@ -1,4 +1,4 @@
-#![no_std]
+// #![no_std]
 #![feature(core_intrinsics, ptr_metadata, unsize, layout_for_ptr, alloc_layout_extra)]
 #![deny(clippy::pedantic, clippy::perf)]
 #![warn(clippy::nursery)]
@@ -230,14 +230,17 @@ fn global() {
 #[test]
 fn freelist() {
     use boxed::Box;
+    const MIN_SIZE: usize = 24 * 4 + 1;
+    const ALLOC_LAYOUT: usize = (MIN_SIZE + 7) / 8 * 8;
     #[repr(align(8))]
-    struct Memory([u8; 128 + 32 + 32]);
+    struct Memory([u8; ALLOC_LAYOUT + 64]);
 
     fn alloc_error_handler(layout: Layout) -> ! { panic!("{:?}", layout) }
     set_alloc_error_handler(alloc_error_handler);
 
     let bump = BumpStorage::<_, { core::mem::align_of::<Memory>() }>::new(SingleStackStorage::<Memory>::new(), 0);
     let storage = FreeListStorage::new(NonZeroUsize::new(4).unwrap(), bump);
+    // let storage = core::cell::RefCell::new(storage);
     let storage = &storage;
     let a = Box::new_in([0_u64; 5], storage);
     drop(a);
