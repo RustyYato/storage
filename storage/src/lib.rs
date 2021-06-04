@@ -27,7 +27,6 @@ mod bump;
 mod global;
 mod global_as_ptr;
 mod imp;
-mod multi;
 mod no_op;
 mod pad;
 mod picker;
@@ -60,7 +59,6 @@ pub use bump::{BumpHandle, BumpStorage};
 pub use freelist::FreeListStorage;
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
-pub use multi::{MultiHandle, MultiStackStorage};
 pub use picker::{AndC, Choose, MaxAlign, MaxSize, MinAlign, MinSize, NotC, OrC, Picker};
 pub use single::{OffsetSingleStackStorage, SingleStackStorage};
 pub use single_ref::{OffsetSingleRefStorage, SingleRefStorage};
@@ -123,34 +121,6 @@ impl<Handle> From<NonEmptyMemoryBlock<Handle>> for MemoryBlock<Handle> {
 
 #[test]
 fn test() {
-    let mut multi = MultiStackStorage::<[u8; 4096]>::new();
-    let mut multi = unsafe { core::pin::Pin::new_unchecked(&mut multi) };
-
-    let block = multi.allocate(Layout::new::<usize>()).unwrap();
-
-    let handle = block.handle;
-
-    unsafe {
-        let ptr = Storage::get_mut(&mut multi, handle);
-        let ptr = ptr.cast::<usize>().as_ptr();
-        ptr.write(0xdead_beef);
-
-        let new_block = multi.allocate(Layout::new::<[usize; 8]>()).unwrap();
-
-        let ptr = Storage::get_mut(&mut multi, handle);
-        let ptr = ptr.cast::<usize>().as_ptr();
-        assert_eq!(ptr.read(), 0xdead_beef);
-
-        multi.deallocate(new_block.handle, Layout::new::<[usize; 8]>());
-
-        let ptr = Storage::get_mut(&mut multi, handle);
-        let ptr = ptr.cast::<usize>().as_ptr();
-        assert_eq!(ptr.read(), 0xdead_beef);
-    }
-}
-
-#[test]
-fn test2() {
     #[repr(align(4096))]
     struct Memory([u8; 1 << 24]);
     zst_static! {
@@ -210,6 +180,7 @@ fn global() {
 
     install_global_allocator! {
         let GLOBAL: GrowableMemory = {
+            let pages = FreeListStorage::new(NonZeroUsize::new(4096).unwrap(), GrowableMemory);
             GrowableMemory
         };
     }
