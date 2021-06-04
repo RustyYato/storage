@@ -20,6 +20,16 @@ pub struct FreeListStorage<S: Storage> {
     items: S::Handle,
 }
 
+impl<S: Storage> Drop for FreeListStorage<S> {
+    fn drop(&mut self) {
+        unsafe {
+            let (layout, ..) = unwrap_unchecked(free_list_layout::<S::Handle>(self.max_size.get()));
+            self.storage
+                .deallocate_nonempty(self.items, NonEmptyLayout::new_unchecked(layout));
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct FreeListHandle<H>(H);
 
