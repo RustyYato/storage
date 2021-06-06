@@ -1,9 +1,25 @@
 use crate::{
     rc::{Counter, DynamicCounter, RefCounted, StrongKind},
-    FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle, SharedResizableStorage,
-    SharedStorage, Storage,
+    Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut, SharedOffsetHandle,
+    SharedResizableStorage, SharedStorage, Storage,
 };
 use core::ptr::NonNull;
+
+impl<T: SharedFlush + SharedStorage + ?Sized, I: DynamicCounter, A: Counter, S: OffsetHandle> Flush
+    for RefCounted<T, I, A, StrongKind, S>
+{
+    fn try_flush(&mut self) -> bool { T::try_shared_flush(self) }
+
+    fn flush(&mut self) { T::shared_flush(self) }
+}
+
+impl<T: SharedFlush + SharedStorage + ?Sized, I: DynamicCounter, A: Counter, S: OffsetHandle> SharedFlush
+    for RefCounted<T, I, A, StrongKind, S>
+{
+    fn try_shared_flush(&self) -> bool { T::try_shared_flush(self) }
+
+    fn shared_flush(&self) { T::shared_flush(self) }
+}
 
 unsafe impl<T: FromPtr + SharedStorage + ?Sized, I: DynamicCounter, A: Counter, S: OffsetHandle> FromPtr
     for RefCounted<T, I, A, StrongKind, S>

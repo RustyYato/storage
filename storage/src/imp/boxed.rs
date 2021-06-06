@@ -1,8 +1,20 @@
 use crate::{
-    boxed::Box, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle,
-    SharedResizableStorage, SharedStorage, Storage,
+    boxed::Box, Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut,
+    SharedOffsetHandle, SharedResizableStorage, SharedStorage, Storage,
 };
 use core::ptr::NonNull;
+
+impl<T: Flush + ?Sized, S: Storage> Flush for Box<T, S> {
+    fn try_flush(&mut self) -> bool { T::try_flush(self) }
+
+    fn flush(&mut self) { T::flush(self) }
+}
+
+impl<T: SharedFlush + ?Sized, S: Storage> SharedFlush for Box<T, S> {
+    fn try_shared_flush(&self) -> bool { T::try_shared_flush(self) }
+
+    fn shared_flush(&self) { T::shared_flush(self) }
+}
 
 unsafe impl<T: FromPtr + ?Sized, S: Storage> FromPtr for Box<T, S> {
     unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { T::from_ptr(self, ptr) }

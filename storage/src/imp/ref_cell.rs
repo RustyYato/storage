@@ -1,9 +1,21 @@
 use core::{cell::RefCell, ptr::NonNull};
 
 use crate::{
-    FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle, SharedResizableStorage,
-    SharedStorage, Storage,
+    Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut, SharedOffsetHandle,
+    SharedResizableStorage, SharedStorage, Storage,
 };
+
+impl<S: Flush + ?Sized> Flush for RefCell<S> {
+    fn try_flush(&mut self) -> bool { S::try_flush(self.get_mut()) }
+
+    fn flush(&mut self) { S::flush(self.get_mut()) }
+}
+
+impl<S: Flush + ?Sized> SharedFlush for RefCell<S> {
+    fn try_shared_flush(&self) -> bool { S::try_flush(&mut *self.borrow_mut()) }
+
+    fn shared_flush(&self) { S::flush(&mut *self.borrow_mut()) }
+}
 
 unsafe impl<S: FromPtr + ?Sized> FromPtr for RefCell<S> {
     unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { S::from_ptr(&*self.borrow(), ptr) }

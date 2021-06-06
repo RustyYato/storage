@@ -1,8 +1,20 @@
 use core::{alloc::Layout, ptr::NonNull};
 
-use crate::{AllocErr, FromPtr, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage};
+use crate::{AllocErr, Flush, FromPtr, ResizableStorage, SharedFlush, SharedGetMut, SharedResizableStorage, SharedStorage, Storage};
 
 pub struct NoOpStorage;
+
+impl Flush for NoOpStorage {
+    fn try_flush(&mut self) -> bool { true }
+
+    fn flush(&mut self) {}
+}
+
+impl SharedFlush for NoOpStorage {
+    fn try_shared_flush(&self) -> bool { true }
+
+    fn shared_flush(&self) {}
+}
 
 unsafe impl FromPtr for NoOpStorage {
     #[inline]

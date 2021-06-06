@@ -1,9 +1,26 @@
 use core::ptr::NonNull;
 
-use crate::{
-    FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle, SharedResizableStorage,
-    SharedStorage, Storage,
-};
+use crate::{Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut, SharedOffsetHandle, SharedResizableStorage, SharedStorage, Storage};
+
+impl<S: SharedFlush + ?Sized> Flush for &S {
+    fn try_flush(&mut self) -> bool {
+        S::try_shared_flush(self)
+    }
+
+    fn flush(&mut self) {
+        S::shared_flush(self)
+    }
+}
+
+impl<S: SharedFlush + ?Sized> SharedFlush for &S {
+    fn try_shared_flush(&self) -> bool {
+        S::try_shared_flush(self)
+    }
+
+    fn shared_flush(&self) {
+        S::shared_flush(self)
+    }
+}
 
 unsafe impl<S: FromPtr + SharedStorage + ?Sized> FromPtr for &S {
     unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { S::from_ptr(self, ptr) }

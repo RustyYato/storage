@@ -7,13 +7,13 @@ use crate::{
 
 pub struct NullStorage<T = core::convert::Infallible>(PhantomData<T>);
 
-impl Flush for NullStorage {
+impl<T> Flush for NullStorage<T> {
     fn try_flush(&mut self) -> bool { true }
 
     fn flush(&mut self) {}
 }
 
-impl SharedFlush for NullStorage {
+impl<T> SharedFlush for NullStorage<T> {
     fn try_shared_flush(&self) -> bool { true }
 
     fn shared_flush(&self) {}
