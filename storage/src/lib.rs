@@ -63,6 +63,7 @@ pub use counting_bump::CountingBumpStorage;
 pub use freelist::FreeListStorage;
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
+pub use no_op::NoOpStorage;
 pub use null::NullStorage;
 pub use picker::{AndC, Choose, MaxAlign, MaxSize, MinAlign, MinSize, NotC, OrC, Picker};
 pub use single::{OffsetSingleStackStorage, SingleStackStorage};
