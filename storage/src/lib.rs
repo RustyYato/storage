@@ -25,6 +25,8 @@ mod non_empty_layout;
 mod affix;
 mod bump;
 mod counting_bump;
+mod counting_flush;
+mod flush_barrier;
 mod global;
 mod global_as_ptr;
 mod imp;
@@ -60,6 +62,8 @@ pub use affix::{
 };
 pub use bump::{BumpHandle, BumpStorage};
 pub use counting_bump::CountingBumpStorage;
+pub use counting_flush::CountingFlushStorage;
+pub use flush_barrier::FlushBarrier;
 pub use freelist::{Flush, FreeListStorage, SharedFlush};
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
