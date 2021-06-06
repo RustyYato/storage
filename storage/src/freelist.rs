@@ -388,8 +388,7 @@ impl<S: Storage + Flush> FreeListStorage<S> {
                 continue
             }
 
-            let scratch_space = ScratchSpace::<S::Handle>::new();
-            let mut vec = crate::vec::Vec::new_in(scratch_space);
+            let mut vec = crate::vec::Vec::new_in(ScratchSpace::<S::Handle>::new());
 
             let flags = core::mem::take(flags);
             let index = i * 7;
@@ -426,20 +425,17 @@ impl<S: Storage + Flush> FreeListStorage<S> {
         let (_, bitflags, bitflags_len) =
             unsafe { unwrap_unchecked(free_list_layout::<S::Handle>(self.max_length.get())) };
 
-        'main_loop: for i in 0..bitflags_len {
-            let (freelist, bitflags) = unsafe { self.free_list_at(bitflags, bitflags_len) };
-
-            let flags = unsafe { bitflags.get_unchecked(i) };
-
+        let (freelist, bitflags) = unsafe { self.free_list_at(bitflags, bitflags_len) };
+        'main_loop: for (i, flags) in bitflags.iter().enumerate() {
             let mut current_flags = flags.load(Ordering::Relaxed);
 
             loop {
-                // if the chunk is empty, then skip it
-                if current_flags == 0 {
+                // if the chunk is empty, then skip it (even if it's locked)
+                if (current_flags & !SINGLE_LOCK) == 0 {
                     continue 'main_loop
                 }
 
-                // if the chunk is locked, then retry
+                // if the chunk is locked, then retry or skip the block
                 if (current_flags & SINGLE_LOCK) != 0 {
                     if force_retry {
                         core::hint::spin_loop();
@@ -461,8 +457,7 @@ impl<S: Storage + Flush> FreeListStorage<S> {
                 }
             }
 
-            let scratch_space = ScratchSpace::<S::Handle>::new();
-            let mut vec = crate::vec::Vec::new_in(scratch_space);
+            let mut vec = crate::vec::Vec::new_in(ScratchSpace::<S::Handle>::new());
 
             let index = i * 7;
             for j in 0..7 {
