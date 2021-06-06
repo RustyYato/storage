@@ -9,13 +9,25 @@ use core::{
 
 use crate::{AllocErr, Handle, NonEmptyLayout, NonEmptyMemoryBlock, SharedGetMut, SharedStorage, Storage};
 
+pub trait Flush {
+    fn try_flush(&mut self) -> bool;
+
+    fn flush(&mut self) { while !self.try_flush() {} }
+}
+
+pub trait SharedFlush: Flush {
+    fn try_shared_flush(&self) -> bool;
+
+    fn shared_flush(&self) { while !self.try_shared_flush() {} }
+}
+
 struct FreeListItem<H> {
     layout: Cell<Layout>,
     handle: Cell<H>,
 }
 
 pub struct FreeListStorage<S: Storage> {
-    max_size: NonZeroUsize,
+    max_length: NonZeroUsize,
     storage: S,
     items: S::Handle,
 }
@@ -23,7 +35,7 @@ pub struct FreeListStorage<S: Storage> {
 impl<S: Storage> Drop for FreeListStorage<S> {
     fn drop(&mut self) {
         unsafe {
-            let (layout, ..) = unwrap_unchecked(free_list_layout::<S::Handle>(self.max_size.get()));
+            let (layout, ..) = unwrap_unchecked(free_list_layout::<S::Handle>(self.max_length.get()));
             self.storage
                 .deallocate_nonempty(self.items, NonEmptyLayout::new_unchecked(layout));
         }
@@ -83,7 +95,7 @@ impl<S: Storage> FreeListStorage<S> {
         bitflags.fill(MaybeUninit::new(0));
 
         Ok(Self {
-            max_size,
+            max_length: max_size,
             storage,
             items: meta,
         })
@@ -93,13 +105,13 @@ impl<S: Storage> FreeListStorage<S> {
 impl<S: Storage> FreeListStorage<S> {
     fn free_list(&self) -> (&[FreeListItem<S::Handle>], &[AtomicU8]) {
         let (_, bitflags, bitflags_len) =
-            unsafe { unwrap_unchecked(free_list_layout::<S::Handle>(self.max_size.get())) };
+            unsafe { unwrap_unchecked(free_list_layout::<S::Handle>(self.max_length.get())) };
         let meta_array = unsafe { self.storage.get(self.items) };
         let free_list = meta_array.cast::<FreeListItem<S::Handle>>().as_ptr();
         unsafe {
             let bitflags = free_list.cast::<AtomicU8>().add(bitflags);
             (
-                slice::from_raw_parts(free_list, self.max_size.get()),
+                slice::from_raw_parts(free_list, self.max_length.get()),
                 slice::from_raw_parts(bitflags, bitflags_len),
             )
         }
@@ -107,16 +119,32 @@ impl<S: Storage> FreeListStorage<S> {
 
     fn free_list_mut(&mut self) -> (&mut [FreeListItem<S::Handle>], &mut [u8]) {
         let (_, bitflags, bitflags_len) =
-            unsafe { unwrap_unchecked(free_list_layout::<S::Handle>(self.max_size.get())) };
-        let meta_array = unsafe { self.storage.get_mut(self.items) };
+            unsafe { unwrap_unchecked(free_list_layout::<S::Handle>(self.max_length.get())) };
+        unsafe { self.free_list_mut_at(bitflags, bitflags_len) }
+    }
+
+    unsafe fn free_list_at(&self, bitflags: usize, bitflags_len: usize) -> (&[FreeListItem<S::Handle>], &[AtomicU8]) {
+        let meta_array = self.storage.get(self.items);
         let free_list = meta_array.cast::<FreeListItem<S::Handle>>().as_ptr();
-        unsafe {
-            let bitflags = free_list.cast::<u8>().add(bitflags);
-            (
-                slice::from_raw_parts_mut(free_list, self.max_size.get()),
-                slice::from_raw_parts_mut(bitflags, bitflags_len),
-            )
-        }
+        let bitflags = free_list.cast::<AtomicU8>().add(bitflags);
+        (
+            slice::from_raw_parts(free_list, self.max_length.get()),
+            slice::from_raw_parts(bitflags, bitflags_len),
+        )
+    }
+
+    unsafe fn free_list_mut_at(
+        &mut self,
+        bitflags: usize,
+        bitflags_len: usize,
+    ) -> (&mut [FreeListItem<S::Handle>], &mut [u8]) {
+        let meta_array = self.storage.get_mut(self.items);
+        let free_list = meta_array.cast::<FreeListItem<S::Handle>>().as_ptr();
+        let bitflags = free_list.cast::<u8>().add(bitflags);
+        (
+            slice::from_raw_parts_mut(free_list, self.max_length.get()),
+            slice::from_raw_parts_mut(bitflags, bitflags_len),
+        )
     }
 }
 
@@ -340,5 +368,151 @@ unsafe impl<S: SharedStorage> SharedStorage for FreeListStorage<S> {
         }
 
         self.storage.shared_deallocate_nonempty(handle, layout)
+    }
+}
+
+impl<S: Storage + Flush> FreeListStorage<S> {
+    fn shallow_flush(&mut self) {
+        type ScratchSpace<H> = crate::SingleStackStorage<[(H, Layout); 7]>;
+
+        let (_, bitflags, bitflags_len) =
+            unsafe { unwrap_unchecked(free_list_layout::<S::Handle>(self.max_length.get())) };
+
+        for i in 0..bitflags_len {
+            let (freelist, bitflags) = unsafe { self.free_list_mut_at(bitflags, bitflags_len) };
+
+            let flags = unsafe { bitflags.get_unchecked_mut(i) };
+
+            // if the chunk is empty, then skip it
+            if *flags == 0 {
+                continue
+            }
+
+            let scratch_space = ScratchSpace::<S::Handle>::new();
+            let mut vec = crate::vec::Vec::new_in(scratch_space);
+
+            let flags = core::mem::take(flags);
+            let index = i * 7;
+            for j in 0..7 {
+                let flag = flags & (1 << j);
+
+                if flag != 0 {
+                    let index = index + j;
+                    let freelist = unsafe { freelist.get_unchecked_mut(index) };
+
+                    unsafe {
+                        vec.push_unchecked((freelist.handle.get(), freelist.layout.get()));
+                    }
+                }
+            }
+
+            while let Some((handle, layout)) = vec.try_pop() {
+                unsafe {
+                    self.storage
+                        .deallocate_nonempty(handle, NonEmptyLayout::new_unchecked(layout))
+                }
+            }
+        }
+    }
+
+    fn shared_shallow_flush(&self, force_retry: bool) -> bool
+    where
+        S: SharedStorage,
+    {
+        type ScratchSpace<H> = crate::SingleStackStorage<[(H, Layout); 7]>;
+
+        let mut completed = true;
+
+        let (_, bitflags, bitflags_len) =
+            unsafe { unwrap_unchecked(free_list_layout::<S::Handle>(self.max_length.get())) };
+
+        'main_loop: for i in 0..bitflags_len {
+            let (freelist, bitflags) = unsafe { self.free_list_at(bitflags, bitflags_len) };
+
+            let flags = unsafe { bitflags.get_unchecked(i) };
+
+            let mut current_flags = flags.load(Ordering::Relaxed);
+
+            loop {
+                // if the chunk is empty, then skip it
+                if current_flags == 0 {
+                    continue 'main_loop
+                }
+
+                // if the chunk is locked, then retry
+                if (current_flags & SINGLE_LOCK) != 0 {
+                    if force_retry {
+                        core::hint::spin_loop();
+                        current_flags = flags.load(Ordering::Relaxed);
+                    } else {
+                        completed = false;
+                        continue 'main_loop
+                    }
+                }
+
+                // if the chunk is empty, then skip it
+                if let Err(cf) =
+                    flags.compare_exchange(current_flags, SINGLE_LOCK, Ordering::Acquire, Ordering::Relaxed)
+                {
+                    core::hint::spin_loop();
+                    current_flags = cf;
+                } else {
+                    break
+                }
+            }
+
+            let scratch_space = ScratchSpace::<S::Handle>::new();
+            let mut vec = crate::vec::Vec::new_in(scratch_space);
+
+            let index = i * 7;
+            for j in 0..7 {
+                let flag = current_flags & (1 << j);
+
+                if flag != 0 {
+                    let index = index + j;
+                    let freelist = unsafe { freelist.get_unchecked(index) };
+
+                    unsafe {
+                        vec.push_unchecked((freelist.handle.get(), freelist.layout.get()));
+                    }
+                }
+            }
+
+            flags.store(0, Ordering::Release);
+
+            while let Some((handle, layout)) = vec.try_pop() {
+                unsafe {
+                    self.storage
+                        .shared_deallocate_nonempty(handle, NonEmptyLayout::new_unchecked(layout))
+                }
+            }
+        }
+
+        completed
+    }
+}
+
+impl<S: Storage + Flush> Flush for FreeListStorage<S> {
+    fn try_flush(&mut self) -> bool {
+        self.shallow_flush();
+        self.storage.try_flush()
+    }
+
+    fn flush(&mut self) {
+        self.shallow_flush();
+        self.storage.flush();
+    }
+}
+
+impl<S: SharedStorage + SharedFlush> SharedFlush for FreeListStorage<S> {
+    fn try_shared_flush(&self) -> bool {
+        let shallow = self.shared_shallow_flush(false);
+        let storage = self.storage.try_shared_flush();
+        shallow && storage
+    }
+
+    fn shared_flush(&self) {
+        self.shared_shallow_flush(true);
+        self.storage.shared_flush();
     }
 }

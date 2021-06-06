@@ -1,10 +1,23 @@
 use core::{alloc::Layout, marker::PhantomData, ptr::NonNull};
 
 use crate::{
-    AllocErr, FromPtr, Handle, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+    AllocErr, Flush, FromPtr, Handle, ResizableStorage, SharedFlush, SharedGetMut, SharedResizableStorage,
+    SharedStorage, Storage,
 };
 
 pub struct NullStorage<T = core::convert::Infallible>(PhantomData<T>);
+
+impl Flush for NullStorage {
+    fn try_flush(&mut self) -> bool { true }
+
+    fn flush(&mut self) {}
+}
+
+impl SharedFlush for NullStorage {
+    fn try_shared_flush(&self) -> bool { true }
+
+    fn shared_flush(&self) {}
+}
 
 impl NullStorage {
     #[inline]

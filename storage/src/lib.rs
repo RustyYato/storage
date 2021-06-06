@@ -60,7 +60,7 @@ pub use affix::{
 };
 pub use bump::{BumpHandle, BumpStorage};
 pub use counting_bump::CountingBumpStorage;
-pub use freelist::FreeListStorage;
+pub use freelist::{FreeListStorage, Flush, SharedFlush};
 pub use global::{set_global_storage, set_global_storage_with, Global, GlobalStorage};
 pub use global_as_ptr::GlobalAsPtrStorage;
 pub use no_op::NoOpStorage;
@@ -246,3 +246,5 @@ fn freelist() {
 // * no raw storage function that could deallocate memory may ...
 //      * be called concurrently with any other such function the same handle
 //      * be called concurrently with any `*get*` function
+
+pub fn asm(f: &mut FreeListStorage<NullStorage>) { f.flush() }
