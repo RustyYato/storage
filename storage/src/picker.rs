@@ -34,6 +34,14 @@ where
             self.right.from_ptr(ptr, layout)
         }
     }
+
+    unsafe fn from_ptr_mut(&mut self, ptr: core::ptr::NonNull<u8>, layout: Layout) -> Self::Handle {
+        if self.choose.choose(layout) {
+            self.left.from_ptr_mut(ptr, layout)
+        } else {
+            self.right.from_ptr_mut(ptr, layout)
+        }
+    }
 }
 
 impl<F: Choose, A: MultiStorage, B: MultiStorage<Handle = A::Handle>> MultiStorage for Picker<F, A, B> where

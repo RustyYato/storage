@@ -17,7 +17,13 @@ impl<T: SharedFlush + ?Sized, S: Storage> SharedFlush for Box<T, S> {
 }
 
 unsafe impl<T: FromPtr + ?Sized, S: Storage> FromPtr for Box<T, S> {
+    #[inline]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { T::from_ptr(self, ptr, layout) }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        T::from_ptr_mut(self, ptr, layout)
+    }
 }
 
 unsafe impl<T: OffsetHandle + ?Sized, S: Storage> OffsetHandle for Box<T, S> {

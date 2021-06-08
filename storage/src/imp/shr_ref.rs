@@ -18,7 +18,13 @@ impl<S: SharedFlush + ?Sized> SharedFlush for &S {
 }
 
 unsafe impl<S: FromPtr + SharedStorage + ?Sized> FromPtr for &S {
+    #[inline]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { S::from_ptr(self, ptr, layout) }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        S::from_ptr(self, ptr, layout)
+    }
 }
 
 unsafe impl<S: SharedOffsetHandle + ?Sized> OffsetHandle for &S {

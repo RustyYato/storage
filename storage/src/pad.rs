@@ -54,8 +54,12 @@ impl<S: ?Sized, const SIZE: usize, const ALIGN: usize> Pad<S, SIZE, ALIGN> {
 }
 
 unsafe impl<S: FromPtr + ?Sized, const SIZE: usize, const ALIGN: usize> FromPtr for Pad<S, SIZE, ALIGN> {
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
-        S::from_ptr(&self.storage, ptr, layout)
+    #[inline]
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { self.storage.from_ptr(ptr, layout) }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        self.storage.from_ptr_mut(ptr, layout)
     }
 }
 

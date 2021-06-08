@@ -1,11 +1,4 @@
-use core::{
-    alloc::{Layout, LayoutError},
-    cell::Cell,
-    mem::MaybeUninit,
-    num::NonZeroUsize,
-    slice,
-    sync::atomic::{AtomicU8, Ordering},
-};
+use core::{alloc::{Layout, LayoutError}, cell::Cell, mem::MaybeUninit, num::NonZeroUsize, ptr::NonNull, slice, sync::atomic::{AtomicU8, Ordering}};
 
 use crate::{
     AllocErr, FromPtr, Handle, NonEmptyLayout, NonEmptyMemoryBlock, ResizableStorage, SharedGetMut,
@@ -318,8 +311,14 @@ impl<S: SharedStorage> FreeListStorage<S> {
 }
 
 unsafe impl<S: FromPtr> FromPtr for FreeListStorage<S> {
-    unsafe fn from_ptr(&self, ptr: core::ptr::NonNull<u8>, layout: Layout) -> Self::Handle {
+    #[inline]
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
         self.storage.from_ptr(ptr, layout)
+    }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        self.storage.from_ptr_mut(ptr, layout)
     }
 }
 

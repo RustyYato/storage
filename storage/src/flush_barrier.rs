@@ -48,6 +48,11 @@ unsafe impl<S: SharedOffsetHandle> SharedOffsetHandle for FlushBarrier<S> {
 unsafe impl<S: FromPtr> FromPtr for FlushBarrier<S> {
     #[inline]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { self.storage.from_ptr(ptr, layout) }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        self.storage.from_ptr_mut(ptr, layout)
+    }
 }
 
 unsafe impl<S: SharedGetMut> SharedGetMut for FlushBarrier<S> {

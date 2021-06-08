@@ -76,6 +76,7 @@ unsafe impl<S: SharedGetMut, const MAX_ALIGN: usize> SharedOffsetHandle for Bump
 }
 
 unsafe impl<S: Storage, const MAX_ALIGN: usize> FromPtr for BumpStorage<S, MAX_ALIGN> {
+    #[inline]
     #[allow(clippy::cast_sign_loss)]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, _: Layout) -> Self::Handle {
         let origin = self.storage.get(self.start);

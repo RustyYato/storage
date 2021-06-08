@@ -107,6 +107,9 @@ unsafe impl<S: SharedOffsetHandle + SharedFlush> SharedOffsetHandle for Counting
 unsafe impl<S: FromPtr + Flush> FromPtr for CountingFlushStorage<S> {
     #[inline]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { self.storage.from_ptr(ptr, layout) }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { self.storage.from_ptr_mut(ptr, layout) }
 }
 
 unsafe impl<S: SharedGetMut + Flush> SharedGetMut for CountingFlushStorage<S> {

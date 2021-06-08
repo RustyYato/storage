@@ -57,6 +57,7 @@ fn global() -> GlobalStorageImp {
 }
 
 unsafe impl FromPtr for Global {
+    #[inline]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, _: Layout) -> Self::Handle { ptr }
 }
 

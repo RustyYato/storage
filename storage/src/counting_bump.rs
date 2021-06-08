@@ -47,6 +47,7 @@ unsafe impl<S: SharedGetMut, const MAX_ALIGN: usize> SharedOffsetHandle for Coun
 }
 
 unsafe impl<S: Storage, const MAX_ALIGN: usize> FromPtr for CountingBumpStorage<S, MAX_ALIGN> {
+    #[inline]
     #[allow(clippy::cast_sign_loss)]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { self.bump.from_ptr(ptr, layout) }
 }

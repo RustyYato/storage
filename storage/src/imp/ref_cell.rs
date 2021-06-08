@@ -18,8 +18,14 @@ impl<S: Flush + ?Sized> SharedFlush for RefCell<S> {
 }
 
 unsafe impl<S: FromPtr + ?Sized> FromPtr for RefCell<S> {
+    #[inline]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
-        S::from_ptr(&*self.borrow(), ptr, layout)
+        S::from_ptr_mut(&mut *self.borrow_mut(), ptr, layout)
+    }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        S::from_ptr_mut(self.get_mut(), ptr, layout)
     }
 }
 

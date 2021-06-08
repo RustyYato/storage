@@ -78,6 +78,11 @@ macro_rules! zst_static_with {
                 unsafe fn from_ptr(&self, ptr: $crate::macros::core::ptr::NonNull<u8>, layout: $crate::macros::core::alloc::Layout) -> Self::Handle {
                     $handle($crate::FromPtr::from_ptr(storage(), ptr, layout))
                 }
+
+                #[inline]
+                unsafe fn from_ptr_mut(&mut self, ptr: $crate::macros::core::ptr::NonNull<u8>, layout: $crate::macros::core::alloc::Layout) -> Self::Handle {
+                    $handle($crate::FromPtr::from_ptr(storage(), ptr, layout))
+                }
             }
 
             unsafe impl $crate::SharedGetMut for $name {

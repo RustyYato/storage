@@ -24,7 +24,13 @@ impl<T: SharedFlush + SharedStorage + ?Sized, I: DynamicCounter, A: Counter, S: 
 unsafe impl<T: FromPtr + SharedStorage + ?Sized, I: DynamicCounter, A: Counter, S: OffsetHandle> FromPtr
     for RefCounted<T, I, A, StrongKind, S>
 {
+    #[inline]
     unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { T::from_ptr(self, ptr, layout) }
+
+    #[inline]
+    unsafe fn from_ptr_mut(&mut self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        T::from_ptr(self, ptr, layout)
+    }
 }
 
 unsafe impl<T: SharedOffsetHandle + ?Sized, I: DynamicCounter, A: Counter, S: OffsetHandle> OffsetHandle
