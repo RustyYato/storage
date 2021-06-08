@@ -65,7 +65,7 @@ where
 
     #[inline]
     unsafe fn deallocate_nonempty(&mut self, handle: Self::Handle, layout: crate::NonEmptyLayout) {
-        let handle = self.inner.from_ptr(handle, layout.into());
+        let handle = self.inner.from_ptr_mut(handle, layout.into());
         S::deallocate_nonempty(&mut self.inner, handle, layout)
     }
 
@@ -76,7 +76,7 @@ where
 
     #[inline]
     unsafe fn deallocate(&mut self, handle: Self::Handle, layout: Layout) {
-        let handle = self.inner.from_ptr(handle, layout);
+        let handle = self.inner.from_ptr_mut(handle, layout);
         S::deallocate(&mut self.inner, handle, layout)
     }
 
@@ -112,7 +112,7 @@ where
         old: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle, old);
+        let handle = self.inner.from_ptr_mut(handle, old);
         map_mbr(S::grow(&mut self.inner, handle, old, new), to_ptr)
     }
 
@@ -123,7 +123,7 @@ where
         old: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle, old);
+        let handle = self.inner.from_ptr_mut(handle, old);
         map_mbr(S::grow_zeroed(&mut self.inner, handle, old, new), to_ptr)
     }
 
@@ -134,7 +134,7 @@ where
         old: Layout,
         new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle, old);
+        let handle = self.inner.from_ptr_mut(handle, old);
         map_mbr(S::shrink(&mut self.inner, handle, old, new), to_ptr)
     }
 }
