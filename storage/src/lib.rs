@@ -177,8 +177,11 @@ fn test() {
 fn global() {
     use crate::boxed::Box;
 
+    const MAX_GLOBAL_SPACE: usize = 1 << 24;
+    const MIN_PAGE_SIZE: usize = 1 << 16;
+
     #[repr(align(4096))]
-    struct Memory([u8; 1 << 24]);
+    struct Memory([u8; MAX_GLOBAL_SPACE]);
 
     trait GlobalFromPtr: GlobalStorage + FromPtr {}
     impl<T: ?Sized + GlobalStorage + FromPtr> GlobalFromPtr for T {}
@@ -201,15 +204,15 @@ fn global() {
     set_alloc_error_handler(alloc_error_handler);
 
     install_global_allocator! {
-        let GLOBAL: GrowableMemory = {
-            let pages = FreeListStorage::new(NonZeroUsize::new(4096).unwrap(), GrowableMemory);
+        let GLOBAL: Picker<MinSize<MIN_PAGE_SIZE>, FreeListStorage<GrowableMemory>, NullStorage<GrowableMemoryHandle>> = {
+            let max_page_count = NonZeroUsize::new(MAX_GLOBAL_SPACE / MIN_PAGE_SIZE).unwrap();
+            let pages = FreeListStorage::new(max_page_count, GrowableMemory);
             let pages = Picker {
-                choose: MinSize::<4096>,
+                choose: MinSize,
                 left: pages,
                 right: NullStorage::with_handle(),
             };
-            SharedStorage::shared_allocate(&pages, Layout::new::<[u8; 4095]>()).unwrap();
-            GrowableMemory
+            pages
         };
     }
 

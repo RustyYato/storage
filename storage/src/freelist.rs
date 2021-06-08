@@ -146,26 +146,12 @@ impl<S: Storage> FreeListStorage<S> {
             slice::from_raw_parts_mut(bitflags, bitflags_len),
         )
     }
-}
 
-unsafe impl<S: SharedGetMut> SharedGetMut for FreeListStorage<S> {
-    unsafe fn shared_get_mut(&self, handle: Self::Handle) -> core::ptr::NonNull<u8> {
-        self.storage.shared_get_mut(handle)
-    }
-}
-
-unsafe impl<S: Storage> Storage for FreeListStorage<S> {
-    type Handle = S::Handle;
-
-    unsafe fn get(&self, handle: Self::Handle) -> core::ptr::NonNull<u8> { self.storage.get(handle) }
-
-    unsafe fn get_mut(&mut self, handle: Self::Handle) -> core::ptr::NonNull<u8> { self.storage.get_mut(handle) }
-
-    fn allocate_nonempty(
-        &mut self,
+    fn attempt_allocate(
+        free_list: &mut [FreeListItem<S::Handle>],
+        bitflags: &mut [u8],
         layout: NonEmptyLayout,
-    ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
-        let (free_list, bitflags) = self.free_list_mut();
+    ) -> Option<NonEmptyMemoryBlock<S::Handle>> {
         for (i, owned) in bitflags.iter_mut().enumerate() {
             // if all of the slots are empty, skip this bucket
             // NOTE: because we have `&mut self`, the free list can't be locked
@@ -183,7 +169,7 @@ unsafe impl<S: Storage> Storage for FreeListStorage<S> {
                     if item_layout.align() == layout.align() && item_layout.size() >= layout.size() {
                         *owned &= !status_bit;
 
-                        return Ok(NonEmptyMemoryBlock {
+                        return Some(NonEmptyMemoryBlock {
                             handle: free_list.handle.get(),
                             size: unsafe { NonZeroUsize::new_unchecked(layout.size()) },
                         })
@@ -192,15 +178,15 @@ unsafe impl<S: Storage> Storage for FreeListStorage<S> {
             }
         }
 
-        let memory = self.storage.allocate_nonempty(layout)?;
-        Ok(NonEmptyMemoryBlock {
-            handle: memory.handle,
-            size: memory.size,
-        })
+        None
     }
 
-    unsafe fn deallocate_nonempty(&mut self, handle: Self::Handle, layout: NonEmptyLayout) {
-        let (free_list, bitflags) = self.free_list_mut();
+    fn attempt_deallocate(
+        free_list: &mut [FreeListItem<S::Handle>],
+        bitflags: &mut [u8],
+        handle: S::Handle,
+        layout: NonEmptyLayout,
+    ) -> bool {
         for (i, owned) in bitflags.iter_mut().enumerate() {
             // if all of the slots are full, skip this bucket
             // NOTE: because we have `&mut self`, the free list can't be locked
@@ -213,25 +199,25 @@ unsafe impl<S: Storage> Storage for FreeListStorage<S> {
                 if (*owned & status_bit) == 0 {
                     *owned |= status_bit;
                     let index = i * 7 + j;
-                    let free_list = free_list.get_unchecked_mut(index);
+                    let free_list = unsafe { free_list.get_unchecked_mut(index) };
                     free_list.layout = Cell::new(layout.into());
                     free_list.handle = Cell::new(handle);
-                    return
+                    return true
                 }
             }
         }
 
-        self.storage.deallocate_nonempty(handle, layout)
+        false
     }
 }
 
 impl<S: SharedStorage> FreeListStorage<S> {
-    fn attempt_to_allocate<H: Copy>(
-        free_list: &[FreeListItem<H>],
+    fn attempt_shared_allocate(
+        free_list: &[FreeListItem<S::Handle>],
         bitflags: &[AtomicU8],
         layout: NonEmptyLayout,
         was_blocked: &mut bool,
-    ) -> Option<NonEmptyMemoryBlock<H>> {
+    ) -> Option<NonEmptyMemoryBlock<S::Handle>> {
         for (i, owned) in bitflags.iter().enumerate() {
             let fetch = owned.load(Ordering::Relaxed);
 
@@ -279,10 +265,10 @@ impl<S: SharedStorage> FreeListStorage<S> {
         None
     }
 
-    fn attempt_to_deallocate<H: Copy>(
-        free_list: &[FreeListItem<H>],
+    fn attempt_shared_deallocate(
+        free_list: &[FreeListItem<S::Handle>],
         bitflags: &[AtomicU8],
-        handle: H,
+        handle: S::Handle,
         layout: NonEmptyLayout,
         was_blocked: &mut bool,
     ) -> bool {
@@ -328,6 +314,45 @@ impl<S: SharedStorage> FreeListStorage<S> {
     }
 }
 
+unsafe impl<S: SharedGetMut> SharedGetMut for FreeListStorage<S> {
+    unsafe fn shared_get_mut(&self, handle: Self::Handle) -> core::ptr::NonNull<u8> {
+        self.storage.shared_get_mut(handle)
+    }
+}
+
+unsafe impl<S: Storage> Storage for FreeListStorage<S> {
+    type Handle = S::Handle;
+
+    unsafe fn get(&self, handle: Self::Handle) -> core::ptr::NonNull<u8> { self.storage.get(handle) }
+
+    unsafe fn get_mut(&mut self, handle: Self::Handle) -> core::ptr::NonNull<u8> { self.storage.get_mut(handle) }
+
+    fn allocate_nonempty(
+        &mut self,
+        layout: NonEmptyLayout,
+    ) -> Result<crate::NonEmptyMemoryBlock<Self::Handle>, AllocErr> {
+        let (free_list, bitflags) = self.free_list_mut();
+        #[allow(clippy::single_match_else)]
+        match Self::attempt_allocate(free_list, bitflags, layout) {
+            Some(memory_block) => Ok(memory_block),
+            None => {
+                let memory = self.storage.allocate_nonempty(layout)?;
+                Ok(NonEmptyMemoryBlock {
+                    handle: memory.handle,
+                    size: memory.size,
+                })
+            }
+        }
+    }
+
+    unsafe fn deallocate_nonempty(&mut self, handle: Self::Handle, layout: NonEmptyLayout) {
+        let (free_list, bitflags) = self.free_list_mut();
+        if !Self::attempt_deallocate(free_list, bitflags, handle, layout) {
+            self.storage.deallocate_nonempty(handle, layout)
+        }
+    }
+}
+
 unsafe impl<S: SharedStorage> SharedStorage for FreeListStorage<S> {
     fn shared_allocate_nonempty(
         &self,
@@ -338,7 +363,7 @@ unsafe impl<S: SharedStorage> SharedStorage for FreeListStorage<S> {
         let waiter = crate::backoff::Backoff::new();
         while waiter.spin() {
             let mut was_blocked = false;
-            if let Some(memory_block) = Self::attempt_to_allocate(free_list, bitflags, layout, &mut was_blocked) {
+            if let Some(memory_block) = Self::attempt_shared_allocate(free_list, bitflags, layout, &mut was_blocked) {
                 return Ok(memory_block)
             }
             if !was_blocked {
@@ -359,7 +384,7 @@ unsafe impl<S: SharedStorage> SharedStorage for FreeListStorage<S> {
         let waiter = crate::backoff::Backoff::new();
         while waiter.spin() {
             let mut was_blocked = false;
-            if Self::attempt_to_deallocate(free_list, bitflags, handle, layout, &mut was_blocked) {
+            if Self::attempt_shared_deallocate(free_list, bitflags, handle, layout, &mut was_blocked) {
                 return
             }
             if !was_blocked {
