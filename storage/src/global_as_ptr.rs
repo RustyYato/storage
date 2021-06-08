@@ -4,7 +4,7 @@ use crate::{
     MultiStorage, OffsetHandle, PointerHandle, ResizableStorage, SharedGetMut, SharedOffsetHandle,
     SharedResizableStorage, SharedStorage, Storage,
 };
-use core::ptr::NonNull;
+use core::{alloc::Layout, ptr::NonNull};
 
 fn to_ptr<H: PointerHandle>(handle: H) -> NonNull<u8> { unsafe { handle.get_mut() } }
 
@@ -21,7 +21,7 @@ where
     S::Handle: PointerHandle,
 {
     #[inline]
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { ptr }
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, _: Layout) -> Self::Handle { ptr }
 }
 
 unsafe impl<S: Storage + FromPtr> OffsetHandle for GlobalAsPtrStorage<S>
@@ -65,18 +65,18 @@ where
 
     #[inline]
     unsafe fn deallocate_nonempty(&mut self, handle: Self::Handle, layout: crate::NonEmptyLayout) {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, layout.into());
         S::deallocate_nonempty(&mut self.inner, handle, layout)
     }
 
     #[inline]
-    fn allocate(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn allocate(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         map_mbr(S::allocate(&mut self.inner, layout), to_ptr)
     }
 
     #[inline]
-    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: core::alloc::Layout) {
-        let handle = self.inner.from_ptr(handle);
+    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: Layout) {
+        let handle = self.inner.from_ptr(handle, layout);
         S::deallocate(&mut self.inner, handle, layout)
     }
 
@@ -89,10 +89,7 @@ where
     }
 
     #[inline]
-    fn allocate_zeroed(
-        &mut self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn allocate_zeroed(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         map_mbr(S::allocate_zeroed(&mut self.inner, layout), to_ptr)
     }
 }
@@ -112,10 +109,10 @@ where
     unsafe fn grow(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, old);
         map_mbr(S::grow(&mut self.inner, handle, old, new), to_ptr)
     }
 
@@ -123,10 +120,10 @@ where
     unsafe fn grow_zeroed(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, old);
         map_mbr(S::grow_zeroed(&mut self.inner, handle, old, new), to_ptr)
     }
 
@@ -134,10 +131,10 @@ where
     unsafe fn shrink(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, old);
         map_mbr(S::shrink(&mut self.inner, handle, old, new), to_ptr)
     }
 }
@@ -156,21 +153,18 @@ where
 
     #[inline]
     unsafe fn shared_deallocate_nonempty(&self, handle: Self::Handle, layout: crate::NonEmptyLayout) {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, layout.into());
         S::shared_deallocate_nonempty(&self.inner, handle, layout)
     }
 
     #[inline]
-    fn shared_allocate(
-        &self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn shared_allocate(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         map_mbr(S::shared_allocate(&self.inner, layout), to_ptr)
     }
 
     #[inline]
-    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: core::alloc::Layout) {
-        let handle = self.inner.from_ptr(handle);
+    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: Layout) {
+        let handle = self.inner.from_ptr(handle, layout);
         S::shared_deallocate(&self.inner, handle, layout)
     }
 
@@ -183,10 +177,7 @@ where
     }
 
     #[inline]
-    fn shared_allocate_zeroed(
-        &self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn shared_allocate_zeroed(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         map_mbr(S::shared_allocate_zeroed(&self.inner, layout), to_ptr)
     }
 }
@@ -199,10 +190,10 @@ where
     unsafe fn shared_grow(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, old);
         map_mbr(S::shared_grow(&self.inner, handle, old, new), to_ptr)
     }
 
@@ -210,10 +201,10 @@ where
     unsafe fn shared_grow_zeroed(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, old);
         map_mbr(S::shared_grow_zeroed(&self.inner, handle, old, new), to_ptr)
     }
 
@@ -221,10 +212,10 @@ where
     unsafe fn shared_shrink(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
-        let handle = self.inner.from_ptr(handle);
+        let handle = self.inner.from_ptr(handle, old);
         map_mbr(S::shared_shrink(&self.inner, handle, old, new), to_ptr)
     }
 }

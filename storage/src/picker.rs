@@ -5,7 +5,8 @@ mod choose;
 pub use choose::{AndC, Choose, MaxAlign, MaxSize, MinAlign, MinSize, NotC, OrC};
 
 use crate::{
-    MultiStorage, PointerHandle, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage, Storage,
+    FromPtr, MultiStorage, PointerHandle, ResizableStorage, SharedGetMut, SharedResizableStorage, SharedStorage,
+    Storage,
 };
 
 pub struct Picker<F, A, B> {
@@ -20,6 +21,19 @@ where
 {
     #[inline]
     unsafe fn shared_get_mut(&self, handle: Self::Handle) -> NonNull<u8> { handle.get_mut() }
+}
+
+unsafe impl<F: Choose, A: FromPtr, B: FromPtr<Handle = A::Handle>> FromPtr for Picker<F, A, B>
+where
+    A::Handle: PointerHandle,
+{
+    unsafe fn from_ptr(&self, ptr: core::ptr::NonNull<u8>, layout: Layout) -> Self::Handle {
+        if self.choose.choose(layout) {
+            self.left.from_ptr(ptr, layout)
+        } else {
+            self.right.from_ptr(ptr, layout)
+        }
+    }
 }
 
 impl<F: Choose, A: MultiStorage, B: MultiStorage<Handle = A::Handle>> MultiStorage for Picker<F, A, B> where

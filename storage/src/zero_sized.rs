@@ -16,8 +16,9 @@ impl<T> ZeroSizedStorage<T> {
 }
 
 unsafe impl<H: Handle> FromPtr for ZeroSizedStorage<H> {
-    #[inline]
-    unsafe fn from_ptr(&self, _: NonNull<u8>) -> Self::Handle { H::dangling(MAX_ALIGN) }
+    unsafe fn from_ptr(&self, _: NonNull<u8>, layout: Layout) -> Self::Handle {
+        H::dangling(layout.align())
+    }
 }
 
 unsafe impl<H: Handle> SharedGetMut for ZeroSizedStorage<H> {

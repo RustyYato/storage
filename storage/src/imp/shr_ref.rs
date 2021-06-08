@@ -1,29 +1,24 @@
-use core::ptr::NonNull;
+use core::{alloc::Layout, ptr::NonNull};
 
-use crate::{Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut, SharedOffsetHandle, SharedResizableStorage, SharedStorage, Storage};
+use crate::{
+    Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut, SharedOffsetHandle,
+    SharedResizableStorage, SharedStorage, Storage,
+};
 
 impl<S: SharedFlush + ?Sized> Flush for &S {
-    fn try_flush(&mut self) -> bool {
-        S::try_shared_flush(self)
-    }
+    fn try_flush(&mut self) -> bool { S::try_shared_flush(self) }
 
-    fn flush(&mut self) {
-        S::shared_flush(self)
-    }
+    fn flush(&mut self) { S::shared_flush(self) }
 }
 
 impl<S: SharedFlush + ?Sized> SharedFlush for &S {
-    fn try_shared_flush(&self) -> bool {
-        S::try_shared_flush(self)
-    }
+    fn try_shared_flush(&self) -> bool { S::try_shared_flush(self) }
 
-    fn shared_flush(&self) {
-        S::shared_flush(self)
-    }
+    fn shared_flush(&self) { S::shared_flush(self) }
 }
 
 unsafe impl<S: FromPtr + SharedStorage + ?Sized> FromPtr for &S {
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { S::from_ptr(self, ptr) }
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { S::from_ptr(self, ptr, layout) }
 }
 
 unsafe impl<S: SharedOffsetHandle + ?Sized> OffsetHandle for &S {
@@ -63,14 +58,12 @@ unsafe impl<S: SharedStorage + ?Sized> Storage for &S {
     }
 
     #[inline]
-    fn allocate(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn allocate(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_allocate(self, layout)
     }
 
     #[inline]
-    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: core::alloc::Layout) {
-        S::shared_deallocate(self, handle, layout)
-    }
+    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: Layout) { S::shared_deallocate(self, handle, layout) }
 
     #[inline]
     fn allocate_nonempty_zeroed(
@@ -81,10 +74,7 @@ unsafe impl<S: SharedStorage + ?Sized> Storage for &S {
     }
 
     #[inline]
-    fn allocate_zeroed(
-        &mut self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn allocate_zeroed(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_allocate_zeroed(self, layout)
     }
 }
@@ -98,8 +88,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> ResizableStorage for &S {
     unsafe fn grow(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_grow(self, handle, old, new)
     }
@@ -108,8 +98,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> ResizableStorage for &S {
     unsafe fn grow_zeroed(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_grow_zeroed(self, handle, old, new)
     }
@@ -118,8 +108,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> ResizableStorage for &S {
     unsafe fn shrink(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_shrink(self, handle, old, new)
     }
@@ -140,15 +130,12 @@ unsafe impl<S: SharedStorage + ?Sized> SharedStorage for &S {
     }
 
     #[inline]
-    fn shared_allocate(
-        &self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn shared_allocate(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_allocate(self, layout)
     }
 
     #[inline]
-    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: core::alloc::Layout) {
+    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: Layout) {
         S::shared_deallocate(self, handle, layout)
     }
 
@@ -161,10 +148,7 @@ unsafe impl<S: SharedStorage + ?Sized> SharedStorage for &S {
     }
 
     #[inline]
-    fn shared_allocate_zeroed(
-        &self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn shared_allocate_zeroed(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_allocate_zeroed(self, layout)
     }
 }
@@ -174,8 +158,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> SharedResizableStorage for &S {
     unsafe fn shared_grow(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_grow(self, handle, old, new)
     }
@@ -184,8 +168,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> SharedResizableStorage for &S {
     unsafe fn shared_grow_zeroed(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_grow_zeroed(self, handle, old, new)
     }
@@ -194,8 +178,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> SharedResizableStorage for &S {
     unsafe fn shared_shrink(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_shrink(self, handle, old, new)
     }

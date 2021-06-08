@@ -2,7 +2,7 @@ use crate::{
     boxed::Box, Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut,
     SharedOffsetHandle, SharedResizableStorage, SharedStorage, Storage,
 };
-use core::ptr::NonNull;
+use core::{alloc::Layout, ptr::NonNull};
 
 impl<T: Flush + ?Sized, S: Storage> Flush for Box<T, S> {
     fn try_flush(&mut self) -> bool { T::try_flush(self) }
@@ -17,7 +17,7 @@ impl<T: SharedFlush + ?Sized, S: Storage> SharedFlush for Box<T, S> {
 }
 
 unsafe impl<T: FromPtr + ?Sized, S: Storage> FromPtr for Box<T, S> {
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { T::from_ptr(self, ptr) }
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { T::from_ptr(self, ptr, layout) }
 }
 
 unsafe impl<T: OffsetHandle + ?Sized, S: Storage> OffsetHandle for Box<T, S> {

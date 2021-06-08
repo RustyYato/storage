@@ -58,7 +58,7 @@ impl<T> SingleRefStorage<'_, T> {
 }
 
 unsafe impl<T> FromPtr for SingleRefStorage<'_, T> {
-    unsafe fn from_ptr(&self, _: NonNull<u8>) {}
+    unsafe fn from_ptr(&self, _: NonNull<u8>, _: Layout) -> Self::Handle {}
 }
 
 unsafe impl<T> SharedGetMut for SingleRefStorage<'_, T> {

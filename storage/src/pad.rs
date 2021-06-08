@@ -54,7 +54,9 @@ impl<S: ?Sized, const SIZE: usize, const ALIGN: usize> Pad<S, SIZE, ALIGN> {
 }
 
 unsafe impl<S: FromPtr + ?Sized, const SIZE: usize, const ALIGN: usize> FromPtr for Pad<S, SIZE, ALIGN> {
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { S::from_ptr(&self.storage, ptr) }
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle {
+        S::from_ptr(&self.storage, ptr, layout)
+    }
 }
 
 unsafe impl<S: OffsetHandle + ?Sized, const SIZE: usize, const ALIGN: usize> OffsetHandle for Pad<S, SIZE, ALIGN> {

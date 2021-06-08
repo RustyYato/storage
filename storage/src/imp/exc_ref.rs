@@ -2,7 +2,7 @@ use crate::{
     Flush, FromPtr, MultiStorage, OffsetHandle, ResizableStorage, SharedFlush, SharedGetMut, SharedOffsetHandle,
     SharedResizableStorage, SharedStorage, Storage,
 };
-use core::ptr::NonNull;
+use core::{alloc::Layout, ptr::NonNull};
 
 impl<S: Flush + ?Sized> Flush for &mut S {
     fn try_flush(&mut self) -> bool { S::try_flush(self) }
@@ -17,7 +17,7 @@ impl<S: SharedFlush + ?Sized> SharedFlush for &mut S {
 }
 
 unsafe impl<S: FromPtr + ?Sized> FromPtr for &mut S {
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { S::from_ptr(self, ptr) }
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle { S::from_ptr(self, ptr, layout) }
 }
 
 unsafe impl<S: OffsetHandle + ?Sized> OffsetHandle for &mut S {
@@ -54,14 +54,12 @@ unsafe impl<S: Storage + ?Sized> Storage for &mut S {
     }
 
     #[inline]
-    fn allocate(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn allocate(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::allocate(self, layout)
     }
 
     #[inline]
-    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: core::alloc::Layout) {
-        S::deallocate(self, handle, layout)
-    }
+    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: Layout) { S::deallocate(self, handle, layout) }
 
     #[inline]
     fn allocate_nonempty_zeroed(
@@ -72,10 +70,7 @@ unsafe impl<S: Storage + ?Sized> Storage for &mut S {
     }
 
     #[inline]
-    fn allocate_zeroed(
-        &mut self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn allocate_zeroed(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::allocate_zeroed(self, layout)
     }
 }
@@ -89,8 +84,8 @@ unsafe impl<S: ResizableStorage + ?Sized> ResizableStorage for &mut S {
     unsafe fn grow(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::grow(self, handle, old, new)
     }
@@ -99,8 +94,8 @@ unsafe impl<S: ResizableStorage + ?Sized> ResizableStorage for &mut S {
     unsafe fn grow_zeroed(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::grow_zeroed(self, handle, old, new)
     }
@@ -109,8 +104,8 @@ unsafe impl<S: ResizableStorage + ?Sized> ResizableStorage for &mut S {
     unsafe fn shrink(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shrink(self, handle, old, new)
     }
@@ -131,15 +126,12 @@ unsafe impl<S: SharedStorage + ?Sized> SharedStorage for &mut S {
     }
 
     #[inline]
-    fn shared_allocate(
-        &self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn shared_allocate(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_allocate(self, layout)
     }
 
     #[inline]
-    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: core::alloc::Layout) {
+    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: Layout) {
         S::shared_deallocate(self, handle, layout)
     }
 
@@ -152,10 +144,7 @@ unsafe impl<S: SharedStorage + ?Sized> SharedStorage for &mut S {
     }
 
     #[inline]
-    fn shared_allocate_zeroed(
-        &self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
+    fn shared_allocate_zeroed(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_allocate_zeroed(self, layout)
     }
 }
@@ -165,8 +154,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> SharedResizableStorage for &mut 
     unsafe fn shared_grow(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_grow(self, handle, old, new)
     }
@@ -175,8 +164,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> SharedResizableStorage for &mut 
     unsafe fn shared_grow_zeroed(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_grow_zeroed(self, handle, old, new)
     }
@@ -185,8 +174,8 @@ unsafe impl<S: SharedResizableStorage + ?Sized> SharedResizableStorage for &mut 
     unsafe fn shared_shrink(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, crate::AllocErr> {
         S::shared_shrink(self, handle, old, new)
     }

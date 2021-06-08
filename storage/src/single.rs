@@ -64,7 +64,7 @@ impl<T> SingleStackStorage<T> {
 }
 
 unsafe impl<T> FromPtr for SingleStackStorage<T> {
-    unsafe fn from_ptr(&self, _: NonNull<u8>) {}
+    unsafe fn from_ptr(&self, _: NonNull<u8>, _: Layout) -> Self::Handle {}
 }
 
 unsafe impl<T> SharedGetMut for SingleStackStorage<T> {

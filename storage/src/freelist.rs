@@ -318,7 +318,9 @@ impl<S: SharedStorage> FreeListStorage<S> {
 }
 
 unsafe impl<S: FromPtr> FromPtr for FreeListStorage<S> {
-    unsafe fn from_ptr(&self, ptr: core::ptr::NonNull<u8>) -> Self::Handle { self.storage.from_ptr(ptr) }
+    unsafe fn from_ptr(&self, ptr: core::ptr::NonNull<u8>, layout: Layout) -> Self::Handle {
+        self.storage.from_ptr(ptr, layout)
+    }
 }
 
 unsafe impl<S: SharedGetMut> SharedGetMut for FreeListStorage<S> {

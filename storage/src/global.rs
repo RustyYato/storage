@@ -1,4 +1,5 @@
 use core::{
+    alloc::Layout,
     ptr::NonNull,
     sync::atomic::{
         AtomicU8,
@@ -56,7 +57,7 @@ fn global() -> GlobalStorageImp {
 }
 
 unsafe impl FromPtr for Global {
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle { ptr }
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, _: Layout) -> Self::Handle { ptr }
 }
 
 unsafe impl SharedGetMut for Global {
@@ -102,14 +103,12 @@ unsafe impl Storage for Global {
     }
 
     #[inline]
-    fn allocate(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+    fn allocate(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().allocate(layout)
     }
 
     #[inline]
-    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: core::alloc::Layout) {
-        global().deallocate(handle, layout)
-    }
+    unsafe fn deallocate(&mut self, handle: Self::Handle, layout: Layout) { global().deallocate(handle, layout) }
 
     #[inline]
     fn allocate_nonempty_zeroed(
@@ -120,7 +119,7 @@ unsafe impl Storage for Global {
     }
 
     #[inline]
-    fn allocate_zeroed(&mut self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+    fn allocate_zeroed(&mut self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().allocate_zeroed(layout)
     }
 }
@@ -130,8 +129,8 @@ unsafe impl ResizableStorage for Global {
     unsafe fn grow(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().grow(handle, old, new)
     }
@@ -140,8 +139,8 @@ unsafe impl ResizableStorage for Global {
     unsafe fn grow_zeroed(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().grow_zeroed(handle, old, new)
     }
@@ -150,8 +149,8 @@ unsafe impl ResizableStorage for Global {
     unsafe fn shrink(
         &mut self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().shrink(handle, old, new)
     }
@@ -172,14 +171,12 @@ unsafe impl SharedStorage for Global {
     }
 
     #[inline]
-    fn shared_allocate(&self, layout: core::alloc::Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+    fn shared_allocate(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().allocate(layout)
     }
 
     #[inline]
-    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: core::alloc::Layout) {
-        global().deallocate(handle, layout)
-    }
+    unsafe fn shared_deallocate(&self, handle: Self::Handle, layout: Layout) { global().deallocate(handle, layout) }
 
     #[inline]
     fn shared_allocate_nonempty_zeroed(
@@ -190,10 +187,7 @@ unsafe impl SharedStorage for Global {
     }
 
     #[inline]
-    fn shared_allocate_zeroed(
-        &self,
-        layout: core::alloc::Layout,
-    ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+    fn shared_allocate_zeroed(&self, layout: Layout) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().allocate_zeroed(layout)
     }
 }
@@ -203,8 +197,8 @@ unsafe impl SharedResizableStorage for Global {
     unsafe fn shared_grow(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().grow(handle, old, new)
     }
@@ -213,8 +207,8 @@ unsafe impl SharedResizableStorage for Global {
     unsafe fn shared_grow_zeroed(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().grow_zeroed(handle, old, new)
     }
@@ -223,8 +217,8 @@ unsafe impl SharedResizableStorage for Global {
     unsafe fn shared_shrink(
         &self,
         handle: Self::Handle,
-        old: core::alloc::Layout,
-        new: core::alloc::Layout,
+        old: Layout,
+        new: Layout,
     ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
         global().shrink(handle, old, new)
     }

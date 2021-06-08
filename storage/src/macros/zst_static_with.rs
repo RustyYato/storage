@@ -75,8 +75,8 @@ macro_rules! zst_static_with {
 
             unsafe impl $crate::FromPtr for $name {
                 #[inline]
-                unsafe fn from_ptr(&self, ptr: $crate::macros::core::ptr::NonNull<u8>) -> Self::Handle {
-                    $handle($crate::FromPtr::from_ptr(storage(), ptr))
+                unsafe fn from_ptr(&self, ptr: $crate::macros::core::ptr::NonNull<u8>, layout: $crate::macros::core::alloc::Layout) -> Self::Handle {
+                    $handle($crate::FromPtr::from_ptr(storage(), ptr, layout))
                 }
             }
 

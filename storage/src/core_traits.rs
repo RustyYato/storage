@@ -16,7 +16,7 @@ pub unsafe trait PointerHandle: Copy + Handle {
 }
 
 pub unsafe trait FromPtr: Storage {
-    unsafe fn from_ptr(&self, ptr: NonNull<u8>) -> Self::Handle;
+    unsafe fn from_ptr(&self, ptr: NonNull<u8>, layout: Layout) -> Self::Handle;
 }
 
 pub unsafe trait SharedGetMut: Storage {

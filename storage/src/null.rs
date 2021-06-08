@@ -31,7 +31,7 @@ impl<T> NullStorage<T> {
 
 unsafe impl<H: Handle> FromPtr for NullStorage<H> {
     #[inline]
-    unsafe fn from_ptr(&self, _: NonNull<u8>) -> Self::Handle { core::hint::unreachable_unchecked() }
+    unsafe fn from_ptr(&self, _: NonNull<u8>, _: Layout) -> Self::Handle { core::hint::unreachable_unchecked() }
 }
 
 unsafe impl<H: Handle> SharedGetMut for NullStorage<H> {
