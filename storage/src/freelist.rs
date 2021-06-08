@@ -7,7 +7,10 @@ use core::{
     sync::atomic::{AtomicU8, Ordering},
 };
 
-use crate::{AllocErr, Handle, NonEmptyLayout, NonEmptyMemoryBlock, SharedGetMut, SharedStorage, Storage};
+use crate::{
+    AllocErr, FromPtr, Handle, NonEmptyLayout, NonEmptyMemoryBlock, ResizableStorage, SharedGetMut,
+    SharedResizableStorage, SharedStorage, Storage,
+};
 
 pub trait Flush {
     fn try_flush(&mut self) -> bool;
@@ -314,6 +317,10 @@ impl<S: SharedStorage> FreeListStorage<S> {
     }
 }
 
+unsafe impl<S: FromPtr> FromPtr for FreeListStorage<S> {
+    unsafe fn from_ptr(&self, ptr: core::ptr::NonNull<u8>) -> Self::Handle { self.storage.from_ptr(ptr) }
+}
+
 unsafe impl<S: SharedGetMut> SharedGetMut for FreeListStorage<S> {
     unsafe fn shared_get_mut(&self, handle: Self::Handle) -> core::ptr::NonNull<u8> {
         self.storage.shared_get_mut(handle)
@@ -534,5 +541,69 @@ impl<S: SharedStorage + SharedFlush> SharedFlush for FreeListStorage<S> {
     fn shared_flush(&self) {
         self.shared_shallow_flush(true);
         self.storage.shared_flush();
+    }
+}
+
+unsafe impl<S: ResizableStorage> ResizableStorage for FreeListStorage<S> {
+    #[inline]
+    unsafe fn grow(
+        &mut self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        self.storage.grow(handle, old, new)
+    }
+
+    #[inline]
+    unsafe fn grow_zeroed(
+        &mut self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        self.storage.grow_zeroed(handle, old, new)
+    }
+
+    #[inline]
+    unsafe fn shrink(
+        &mut self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        self.storage.shrink(handle, old, new)
+    }
+}
+
+unsafe impl<S: SharedResizableStorage> SharedResizableStorage for FreeListStorage<S> {
+    #[inline]
+    unsafe fn shared_grow(
+        &self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        self.storage.shared_grow(handle, old, new)
+    }
+
+    #[inline]
+    unsafe fn shared_grow_zeroed(
+        &self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        self.storage.shared_grow_zeroed(handle, old, new)
+    }
+
+    #[inline]
+    unsafe fn shared_shrink(
+        &self,
+        handle: Self::Handle,
+        old: Layout,
+        new: Layout,
+    ) -> Result<crate::MemoryBlock<Self::Handle>, AllocErr> {
+        self.storage.shared_shrink(handle, old, new)
     }
 }
